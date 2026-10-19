@@ -660,6 +660,21 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void Prediction_TypingAfterTabCommitsIt()
+    {
+        // Tab で予測の候補を選んだあと、Enter を押さずに続けて打ったら、その候補で確定して続きを入力する (選ぶ前の打ちかけに戻さない)
+        var phrases = new PhraseHistory(null);
+        phrases.Remember("きょうのよてい", "今日の予定");
+        var k = new Keyboard(predictor: new Predictor(phrases, null, null));
+        k.Type("kyou");
+        k.Press(VirtualKeys.Tab);
+        Assert.Equal("今日の予定", k.Showing);
+        k.Type("ha");
+        Assert.Equal("今日の予定", k.Host.Document);
+        Assert.Equal("は", k.Showing);
+    }
+
+    [Test]
     public static void Prediction_CompletesEnglishWord()
     {
         // #38: 英単語の打ちかけ (decis) から続きの候補 (decision, decisions …)

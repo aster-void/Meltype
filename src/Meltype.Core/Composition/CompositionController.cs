@@ -741,9 +741,9 @@ public sealed class CompositionController
                 _text.FixTypos();
                 StartConversion(preferJapanese: true);
                 return;
-            case VirtualKeys.Return when _predictionIndex >= 0 && _predictionIndex < _predictions.Count && _predictionKey == PredictionKey():
+            case VirtualKeys.Return when SelectedPrediction() is { } prediction:
                 // 予測変換の候補を選んでいれば、それを確定する。
-                CommitPrediction(_predictions[_predictionIndex]);
+                CommitPrediction(prediction);
                 return;
             case VirtualKeys.Return:
                 if (IsProtectedInput) { CommitProtected(""); return; }
@@ -963,6 +963,12 @@ public sealed class CompositionController
         else if (_modeByKey)
         {
             Commit();
+            BeginComposition();
+        }
+        else if (SelectedPrediction() is { } prediction)
+        {
+            // Tab で予測の候補を選んだあとに続けて打ったら、その候補で確定して新しい入力を始める (選ぶ前の打ちかけに戻さない)
+            CommitPrediction(prediction);
             BeginComposition();
         }
     }
@@ -2990,6 +2996,10 @@ public sealed class CompositionController
         UpdatePredictions(blocked: false);
         return _predictions;
     }
+
+    /// <summary>Tab で選んでいる予測の候補 (打った内容が選んだときのままのときだけ)。</summary>
+    private Prediction? SelectedPrediction() =>
+        _predictionIndex >= 0 && _predictionIndex < _predictions.Count && _predictionKey == PredictionKey() ? _predictions[_predictionIndex] : null;
 
     private List<string>? PreviewCandidates() =>
         _text.Mode == DisplayMode.Auto && _text.Raw.Equals("go", StringComparison.OrdinalIgnoreCase)
