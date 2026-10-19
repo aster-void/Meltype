@@ -644,6 +644,22 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void Prediction_FromLastClause()
+    {
+        // 読み全体 (たんいをとる) の続きが無くても、最後の文節 (とる) の続きを出す。選ぶと前の文節は見えているとおりに残す
+        var phrases = new PhraseHistory(null);
+        phrases.Remember("とるこりょうり", "トルコ料理");
+        var k = new Keyboard(live: true, predictor: new Predictor(phrases, null, null));
+        k.Type("tanniwotoru");
+        Assert.Equal("単位を取る", k.Showing);
+        Assert.True(k.Host.View!.Predictions?.Contains("トルコ料理") == true, "最後の文節の続き: " + string.Join(",", k.Host.View.Predictions ?? []));
+        k.Press(VirtualKeys.Tab);
+        Assert.Equal("単位をトルコ料理", k.Showing);
+        k.Press(VirtualKeys.Return);
+        Assert.Equal("単位をトルコ料理", k.Host.Document);
+    }
+
+    [Test]
     public static void Prediction_CompletesEnglishWord()
     {
         // #38: 英単語の打ちかけ (decis) から続きの候補 (decision, decisions …)
