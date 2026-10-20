@@ -657,6 +657,11 @@ internal static class CompositionTests
         Assert.Equal("単位をトルコ料理", k.Showing);
         k.Press(VirtualKeys.Return);
         Assert.Equal("単位をトルコ料理", k.Host.Document);
+
+        // ライブ変換が OFF なら、最後の文節では引かない (打鍵ごとに変換を増やさない)
+        var off = new Keyboard(predictor: new Predictor(phrases, null, null));
+        off.Type("tanniwotoru");
+        Assert.True(off.Host.View!.Predictions is null, "OFF: " + string.Join(",", off.Host.View.Predictions ?? []));
     }
 
     [Test]
@@ -672,6 +677,21 @@ internal static class CompositionTests
         k.Type("ha");
         Assert.Equal("今日の予定", k.Host.Document);
         Assert.Equal("は", k.Showing);
+    }
+
+    [Test]
+    public static void Prediction_BackSpaceAfterTabDoesNotCommit()
+    {
+        // Tab で予測の候補を選んだあとの BackSpace は、確定せずに、選ぶ前の打ちかけから 1 文字消す
+        var phrases = new PhraseHistory(null);
+        phrases.Remember("きょうのよてい", "今日の予定");
+        var k = new Keyboard(predictor: new Predictor(phrases, null, null));
+        k.Type("kyou");
+        k.Press(VirtualKeys.Tab);
+        Assert.Equal("今日の予定", k.Showing);
+        k.Press(VirtualKeys.Back);
+        Assert.Equal("", k.Host.Document);
+        Assert.Equal("きょ", k.Showing);
     }
 
     [Test]

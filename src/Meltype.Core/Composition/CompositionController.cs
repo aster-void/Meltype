@@ -310,7 +310,7 @@ public sealed class CompositionController
     private readonly ICompositionHost _host;
     private readonly CompositionOptions _options;
     private readonly Dictionary<string, string> _conversionCache = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> _liveCache = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<(string Reading, string Text)>> _liveCache = new(StringComparer.Ordinal);
     private readonly HashSet<int> _swallowedShift = [];
     private readonly HashSet<int> _swallowedControl = [];
     private readonly HashSet<int> _replayedDown = [];
@@ -2433,12 +2433,18 @@ public sealed class CompositionController
     {
         // 記号 (～ ! ? …) は数えない。かなが短いうちに記号を足しただけで、的外れな漢字にしない (な～～～ が 名～～～ になっていた: issue #505)
         if (kana.Count(c => c is (>= 'ぁ' and <= 'ゖ') or (>= 'ァ' and <= 'ヺ') or 'ー') < LiveConversionMinLength) return kana;
+        return string.Concat(LiveClauses(kana).Select(c => c.Text));
+    }
+
+    /// <summary>ライブ変換の文節 (読みと変換した文字)。予測変換で最後の文節を探すときも、同じ打鍵で変換した結果を使う。</summary>
+    private List<(string Reading, string Text)> LiveClauses(string kana)
+    {
         var key = string.Join("\u0001", kana, _precedingText, _followingText, _options.History?.Version);
         if (_liveCache.TryGetValue(key, out var cached)) return cached;
-        var converted = string.Concat(ConvertJapanese(kana).Select(c => c.Text));
+        var clauses = ConvertJapanese(kana).Select(c => (c.Reading, c.Text)).ToList();
         if (_liveCache.Count > 256) _liveCache.Clear();
-        _liveCache[key] = converted;
-        return converted;
+        _liveCache[key] = clauses;
+        return clauses;
     }
 
     /// <summary>今の表示 (ライブ変換が有効なら日本語区間は漢字に変換済み)。</summary>
@@ -2977,10 +2983,12 @@ public sealed class CompositionController
     private List<(string Before, string Reading)> PredictionStarts(string kana)
     {
         var starts = new List<(string Before, string Reading)> { ("", kana) };
-        var clauses = ConvertJapanese(kana);
+        // 文節の区切りはライブ変換の結果を使う (打鍵ごとに変換を増やさない)。ライブ変換が OFF のときと、読みが短いうちは読み全体だけ
+        if (!_options.LiveConversion() || kana.Length < LiveConversionMinLength) return starts;
+        var clauses = LiveClauses(kana);
         if (clauses.Count < 2) return starts;
         var last = clauses[^1];
-        // 見えている文字の終わりが最後の文節 (ライブ変換なら漢字、短いうちや OFF ならかな) のときだけ。
+        // 見えている文字の終わりが最後の文節 (変換した文字か、変換していない読み) のときだけ。
         // 英語として見せている所があるときなどは、前に残す文字が分からないので読み全体の続きだけにする
         var display = CurrentDisplay(final: false);
         var shown = display.EndsWith(last.Text, StringComparison.Ordinal) ? last.Text : display.EndsWith(last.Reading, StringComparison.Ordinal) ? last.Reading : null;
