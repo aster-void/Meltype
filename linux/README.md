@@ -90,6 +90,28 @@ sudo apt install meltype
 
 apt リポジトリがまだ公開されていない場合は、上の Releases から `.deb` を入れる方法を使ってください.
 
+Fedora では、`.rpm` から入れられます (dnf で外せます。中身は `.deb` と同じです。Fedora 44 でビルドしています)。
+[Releases](https://github.com/yksr-melt/Meltype/releases/latest) から CPU に合う `.rpm` をダウンロードして、次のコマンドでインストールします。
+
+x86_64:
+
+```bash
+sudo dnf install ./meltype-<version>-1.x86_64.rpm
+```
+
+ARM64:
+
+```bash
+sudo dnf install ./meltype-<version>-1.aarch64.rpm
+```
+
+dnf リポジトリから入れると、以後 `sudo dnf upgrade` で更新できます。初回だけ、リポジトリを登録します (公開鍵は最初のインストールのときに確認を求められます)。
+
+```bash
+sudo dnf config-manager addrepo --from-repofile=https://yksr-melt.github.io/Meltype/rpm/meltype.repo
+sudo dnf install meltype
+```
+
 <a name="ibus-のとき"></a>
 <img src="../docs/images/headings/linux/s01.svg" alt="IBus のとき" height="40">
 
@@ -152,7 +174,7 @@ bash uninstall.sh
 bash uninstall.sh --data
 ```
 
-`.deb` で入れたときは `sudo apt remove meltype` で外します (設定と学習データ `~/.local/share/Meltype` は残るので、要らなければ消してください)。
+`.deb` で入れたときは `sudo apt remove meltype`、`.rpm` で入れたときは `sudo dnf remove meltype` で外します (設定と学習データ `~/.local/share/Meltype` は残るので、要らなければ消してください)。
 
 <br>
 

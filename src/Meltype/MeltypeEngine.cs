@@ -539,6 +539,13 @@ internal sealed class MeltypeEngine : IDisposable
     }
 
     /// <summary>
+    /// 打ち始めの / を、・ にせずそのままアプリへ渡すか。前面のアプリが「コード」で、キャレットがコードの中か、
+    /// ターミナルの AI の入力行 (Claude Code・Codex の /command を打つ所) にあるとき。コメント・文字列の中は ・ にする。
+    /// </summary>
+    private bool PassesSlash(Settings settings) =>
+        InCode(settings) || !_codeJapanese && IsCodeApp(settings) && _line.Text is { } line && LineContext.ClassifyText(line) == LineKind.Prompt;
+
+    /// <summary>
     /// 入力欄にフォーカスが移ったとき (フォーカスを調べるスレッドから呼ばれる)。次に打つキーが 日本語 / 英数 のどちらで入るかを出す。
     /// 「コード」のアプリのコードの行では、日本語入力のままでも英数で入るので「A」を出す。
     /// </summary>
@@ -700,11 +707,17 @@ internal sealed class MeltypeEngine : IDisposable
         }
         // 先頭か空白の直後の /command・$skill・@ファイル名 は、名前の終わり (空白) まで変換せずにそのままアプリへ渡す (#193)。
         // かな入力では / などのキーはかな (め) なので対象にしない。
+        // 文章の入力欄 (コードエディターのコード以外) の / は、変換ボックスに ・ として入れる。Space で / にすると、続く名前はそのまま渡す。
+        var slashAtStart = false;
         if (!reconvert && settings.SigilWordsDirect && (_keyboardDirect || settings.InputStyle != InputStyle.Kana) &&
             KeyText.CharFromKey(e.Vk, e.Scan, false) is { } typed && _sigil.PassesThrough(typed, _line.Text))
         {
-            if (!_sigil.IsActive) Log.Info($"{typed} で始まる語: 空白までそのまま入力します");
-            return false;
+            slashAtStart = typed == '/' && !_keyboardDirect && !_sigil.IsActive && !PassesSlash(settings);
+            if (!slashAtStart)
+            {
+                if (!_sigil.IsActive) Log.Info($"{typed} で始まる語: 空白までそのまま入力します");
+                return false;
+            }
         }
         if (!_foreground.Check(settings).Allowed) return false;
         // 文字入力欄 (パスワード以外) にフォーカスがあるときだけ。ショートカットキーやゲームの操作を横取りしない。
@@ -720,6 +733,7 @@ internal sealed class MeltypeEngine : IDisposable
             if (letter) _lastLineKind = kind;
             if (code) return false;
         }
+        if (slashAtStart) _composition?.Controller.MarkSlashAtStart();
         return true;
     }
 

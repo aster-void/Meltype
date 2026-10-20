@@ -11,10 +11,10 @@ namespace Meltype.Composition;
 /// </summary>
 public sealed class CandidateDictionary
 {
-    private readonly Dictionary<string, List<string>> _entries = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string[]> _entries = new(StringComparer.Ordinal);
 
     // 絵文字・顔文字 (emoji.txt・emoji-cldr.txt)。変換の候補では最後にまとめて出すので、ほかの候補と分けて持つ。
-    private readonly Dictionary<string, List<string>> _emoji = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string[]> _emoji = new(StringComparer.Ordinal);
 
     public int Count => _entries.Count + _emoji.Keys.Count(k => !_entries.ContainsKey(k));
 
@@ -83,13 +83,10 @@ public sealed class CandidateDictionary
 
     public void Add(string reading, IEnumerable<string> words) => Add(_entries, reading, words);
 
-    private static void Add(Dictionary<string, List<string>> entries, string reading, IEnumerable<string> words)
+    private static void Add(Dictionary<string, string[]> entries, string reading, IEnumerable<string> words)
     {
-        if (!entries.TryGetValue(reading, out var list)) entries[reading] = list = [];
-        foreach (var word in words)
-        {
-            if (!list.Contains(word)) list.Add(word);
-        }
+        var existing = entries.GetValueOrDefault(reading) ?? [];
+        entries[reading] = existing.Concat(words).Distinct(StringComparer.Ordinal).ToArray();
     }
 
     /// <summary>
@@ -110,7 +107,7 @@ public sealed class CandidateDictionary
     /// <summary>絵文字・顔文字の候補 (手で書いた emoji.txt の順 → CLDR の順)。</summary>
     public IReadOnlyList<string> LookupEmoji(string reading) => Lookup(_emoji, reading);
 
-    private static IReadOnlyList<string> Lookup(Dictionary<string, List<string>> entries, string reading)
+    private static IReadOnlyList<string> Lookup(Dictionary<string, string[]> entries, string reading)
     {
         for (var length = reading.Length; length >= 1; length--)
         {

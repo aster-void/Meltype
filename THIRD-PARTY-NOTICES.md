@@ -365,6 +365,46 @@ SPDX-License-Identifier: Unicode-3.0
 Meltype 本体と同じライセンス (GPL-3.0-or-later) です。
 固有名詞の辞書に含まれる製品名・会社名は各社の商標です。
 
+### Mozc-UT 辞書 (同梱しない。ユーザーが任意で用意するもの)
+
+Meltype は **Mozc-UT 辞書を同梱していません**。Mozc-UT 辞書 (mozcdic-ut.txt など) は、[merge-ut-dictionaries](https://github.com/utuhiro78/merge-ut-dictionaries) などを使ってユーザー自身が用意する任意のデータです。Meltype は、環境変数 `MELTYPE_UT_DICTIONARY` で指定されたファイルを、そのユーザーの手元の Mozc ビルドにマージするだけです。Meltype の配布物には UT 辞書のデータは含まれず、Meltype が UT 辞書をダウンロードすることもありません。
+
+| 部品 | ライセンス | 同梱先 |
+| --- | --- | --- |
+| Mozc-UT 辞書 (mozcdic-ut.txt など。複数の辞書を連結したもの) | 辞書ごとに異なります (下の表)。CC BY-SA・Apache-2.0・パブリックドメイン・GPL-2.0-only などが混在しています | 同梱しません。`MELTYPE_UT_DICTIONARY` でユーザーが指定したファイルだけを、そのユーザーの環境でビルドする Mozc にマージします |
+
+#### UT 辞書を構成する辞書
+
+| 辞書 | ライセンス | 入手元 |
+| --- | --- | --- |
+| 人名辞書 (personal names) | Apache-2.0 (リポジトリの表示) | https://github.com/utuhiro78/mozcdic-ut-personal-names |
+| 地名辞書 (place names) | パブリックドメイン相当 (日本郵便が郵便番号データについて著作権を主張していない) | https://github.com/utuhiro78/mozcdic-ut-place-names / 日本郵便「郵便番号データの説明」 https://www.post.japanpost.jp/zipcode/dl/readme.html |
+| SudachiDict | Apache-2.0 (UniDic の BSD-3-Clause のデータと、NEologd 由来のデータを含みます) | https://github.com/utuhiro78/mozcdic-ut-sudachidict / https://github.com/WorksApplications/SudachiDict/blob/develop/LEGAL |
+| jawiki (日本語版ウィキペディア由来) | CC BY-SA (**バージョンの記載がありません**) | https://github.com/utuhiro78/mozcdic-ut-jawiki / https://ja.wikipedia.org/wiki/Wikipedia:ウィキペディアを二次利用する |
+| NEologd | Apache-2.0 (はてなキーワード・駅名一覧・人名データなど、第三者のデータを含みます) | https://github.com/utuhiro78/mozcdic-ut-neologd / https://github.com/neologd/mecab-ipadic-neologd/blob/master/COPYING |
+| EDICT2 | CC BY-SA 4.0 (Electronic Dictionary Research and Development Group) | https://github.com/utuhiro78/mozcdic-ut-edict2 / https://www.edrdg.org/edrdg/licence.html |
+| SKK-JISYO | GPL-2.0-or-later | https://github.com/utuhiro78/mozcdic-ut-skk-jisyo / https://github.com/skk-dev/dict |
+| alt-cannadic | GPL-2.0 (only。**Meltype では使用できません**) | https://github.com/utuhiro78/mozcdic-ut-alt-cannadic |
+
+#### UT 辞書を有効にしたビルドを配布する場合
+
+Meltype は UT 辞書入りのビルドを配布しません。配布するのは、そのビルドを作ったあなた自身です。
+
+- **CC BY-SA の部分 (jawiki・EDICT2)**: 出典 (ウィキペディアの記事へのリンク、EDRDG への謝辞) を表示し、改変したこと (コスト・品詞 ID の書き換え、重複の削除、語の取捨選択) を明示し、ライセンス正文または URI を同梱し、二次的著作物も同じ条件で許諾してください (ShareAlike)。EDRDG の辞書は「最新版に更新する手続きを用意すること」「EDRDG の著作権を自分のものと主張しないこと」も求めています。jawiki 辞書は CC BY-SA のバージョンを明記しておらず、CC BY-SA 3.0 のデータは GPLv3 と組み合わせることができません。
+- **Apache-2.0 の部分 (SudachiDict・NEologd・人名辞書・UT のコード)**: 著作権表示・ライセンス正文・NOTICE を保持してください。SudachiDict と NEologd には、UniDic (BSD-3-Clause) と、はてなキーワード・駅名一覧・人名データなど第三者のデータが含まれます。上流の `LEGAL` と `COPYING` の帰属表示もあわせて同梱してください。
+- **GPL-2.0-or-later の部分 (SKK-JISYO)**: GPL の条件 (ソースの提供など) に従ってください。
+- **GPL-2.0 (only) の部分 (alt-cannadic)**: GPLv2 は GPLv3 と互換ではないため、**Meltype (GPL-3.0-or-later) と組み合わせて配布することはできません**。alt-cannadic を含む UT 辞書は使用しないでください。
+- **パブリックドメイン相当の部分 (地名辞書)**: 日本郵便は郵便番号データについて著作権を主張していませんが、日本郵便への謝意を明記することをおすすめします。
+- **GPLv3 (Meltype 本体)**: UT 辞書を入れたバイナリを配布する場合、Meltype 本体の GPL-3.0-or-later の条件 (対応するソースの提供など) も満たす必要があります。
+
+#### Mozc 本体の辞書
+
+Mozc の変換エンジンに同梱される Mozc 本体の辞書 (IPAdic (NAIST)・ICOT・沖縄辞書) のライセンスは、UT 辞書を追加しても変わりません。`app\mozc\MOZC-CREDITS.html` の記載を引き続き同梱してください。
+
+#### 公式の成果物ではありません
+
+UT 辞書を有効にしてビルドしたバイナリは、**あなた自身のビルド**です。Meltype の公式な配布物ではなく、Meltype のサポートや動作保証の対象でもありません。
+
 ### README の画像
 
 - `docs/meltype.jpg`・`docs/images/logo.png` (Meltype のロゴ) は [@Crysta1221](https://github.com/Crysta1221) さんの作品です。

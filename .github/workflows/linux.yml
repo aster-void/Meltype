@@ -1,6 +1,6 @@
 name: linux
 
-# Linux 版 (linux/、IBus) をビルドして、テスター向けの zip と apt で入れられる .deb を実行結果 (Artifacts) に置く。
+# Linux 版 (linux/、IBus) をビルドして、テスター向けの zip と apt で入れられる .deb、dnf で入れられる .rpm を実行結果 (Artifacts) に置く。
 # Actions の画面から手動で実行するか、Linux 版・Mozc のヘルパー・共通部分を変えて push / Pull Request したとき。
 # タグ (v*) ならリリースにも添付する。
 # Mozc のビルドは初回 30〜40 分かかるので、Bazel の結果をキャッシュして次から速くする。
@@ -145,9 +145,85 @@ jobs:
             linux/build/Meltype-*.zip
             linux/build/meltype_*.deb
 
-  build-apt-repository:
-    if: startsWith(github.ref, 'refs/tags/v')
+  # dnf で入れられる .rpm (Fedora)。本体と Mozc のヘルパーは app のジョブが Ubuntu でビルドした zip のものを使い、
+  # fcitx5 のアドオンだけ Fedora の fcitx5 に対してビルドし直す (Ubuntu 24.04 の fcitx5 とは版が違う)
+  rpm:
     needs: app
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            asset: linux
+          - runner: ubuntu-24.04-arm
+            asset: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    container: registry.fedoraproject.org/fedora:44
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - name: Packages
+        run: |
+          dnf install -y git unzip rpm-build cmake gcc-c++ fcitx5 fcitx5-devel ibus python3 python3-gobject procps-ng
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: meltype-${{ matrix.asset }}
+          path: linux/build/artifact
+      - name: Build fcitx5 addon
+        run: |
+          (cd linux/build && unzip -q artifact/Meltype-*.zip)
+          cmake -S linux/fcitx5 -B linux/build/fcitx5 -DMELTYPE_DIR=/opt/meltype -DCMAKE_BUILD_TYPE=Release
+          cmake --build linux/build/fcitx5
+          cp linux/build/fcitx5/meltype.so linux/build/Meltype-linux/fcitx5/meltype.so
+      - name: Test fcitx5 addon
+        run: |
+          mkdir -p linux/build/fcitx5-native
+          cp linux/build/Meltype-linux/libMeltypeNative.so linux/build/fcitx5-native/
+          cmake -S linux/fcitx5 -B linux/build/fcitx5-test -DBUILD_TESTING=ON
+          cmake --build linux/build/fcitx5-test
+          HOME="$RUNNER_TEMP/fcitx5-home" MELTYPE_DIR="$PWD/linux/build/fcitx5-native" ctest --test-dir linux/build/fcitx5-test --output-on-failure
+      # Ubuntu でビルドした本体と Mozc のヘルパーが、Fedora のライブラリで動くか
+      - name: IBus and real Mozc integration tests
+        run: timeout 120 python3 linux/tests/test_integration.py linux/build/Meltype-linux
+      - name: Package (.rpm)
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then version="${GITHUB_REF_NAME#v}"; else
+            version="$(sed -n 's|.*<version>\(.*\)</version>.*|\1|p' linux/meltype.xml | head -n 1)~test.$(date +%Y%m%d%H%M)"; fi
+          linux/build-rpm.sh "$version" linux/build/Meltype-linux linux/build
+          rpm -qpi linux/build/meltype-*.rpm
+          rpm -qpR linux/build/meltype-*.rpm
+          rpm -qpl linux/build/meltype-*.rpm
+      # 実際に dnf で入れて、決まった場所に置かれるか・IBus の一覧に載るか・外せるかを確かめる
+      - name: Test .rpm
+        run: |
+          dnf install -y ./linux/build/meltype-*.rpm
+          test -x /opt/meltype/ibus-engine-meltype
+          test -x /opt/meltype/mozc/meltype_mozc_helper
+          grep -q '<exec>/opt/meltype/ibus-engine-meltype --ibus</exec>' /usr/share/ibus/component/meltype.xml
+          ibus read-cache --system | grep -q /opt/meltype/ibus-engine-meltype
+          test -f /usr/share/fcitx5/inputmethod/meltype.conf
+          test -f /usr/lib64/fcitx5/meltype.so
+          dnf remove -y meltype
+          test ! -e /opt/meltype/ibus-engine-meltype
+          test ! -e /usr/share/ibus/component/meltype.xml
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: meltype-${{ matrix.asset }}-rpm
+          path: linux/build/meltype-*.rpm
+          retention-days: 14
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@e598afbe1493e6b1bafb1f389cabb956eab91231 # v3.0.3
+        with:
+          files: linux/build/meltype-*.rpm
+
+  # apt と dnf のリポジトリを同じ鍵で署名して、1 つの GitHub Pages の成果物にする
+  # (Pages は deploy のたびにサイト全体を置き換えるので、別々のジョブで deploy すると片方が消える)
+  build-repositories:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [app, rpm]
     runs-on: ubuntu-24.04
     outputs:
       ready: ${{ steps.signing.outputs.ready }}
@@ -162,7 +238,7 @@ jobs:
         run: |
           if [[ -z "$APT_SIGNING_KEY_B64" ]]; then
             echo 'ready=false' >> "$GITHUB_OUTPUT"
-            echo '::notice::APT_SIGNING_KEY_B64 is not set; skipping apt repository publication.'
+            echo '::notice::APT_SIGNING_KEY_B64 is not set; skipping apt and dnf repository publication.'
           else
             echo 'ready=true' >> "$GITHUB_OUTPUT"
           fi
@@ -177,7 +253,7 @@ jobs:
         if: steps.signing.outputs.ready == 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y apt-utils gnupg
+          sudo apt-get install -y apt-utils gnupg rpm createrepo-c
       - name: Build signed apt repository
         if: steps.signing.outputs.ready == 'true'
         env:
@@ -190,18 +266,30 @@ jobs:
             exit 1
           fi
           bash linux/build-apt-repository.sh "${debs[@]}" "$RUNNER_TEMP/meltype-pages"
-      - name: Upload apt repository for GitHub Pages
+      - name: Build signed dnf repository
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          APT_SIGNING_KEY_B64: ${{ secrets.APT_SIGNING_KEY_B64 }}
+          APT_SIGNING_KEY_PASSPHRASE: ${{ secrets.APT_SIGNING_KEY_PASSPHRASE }}
+        run: |
+          mapfile -d '' -t rpms < <(find "$RUNNER_TEMP/meltype-artifacts" -type f -name 'meltype-*.rpm' -print0 | sort -z)
+          if (("${#rpms[@]}" != 2)); then
+            echo "Expected x86_64 and aarch64 .rpm packages; found ${#rpms[@]}." >&2
+            exit 1
+          fi
+          bash linux/build-rpm-repository.sh "${rpms[@]}" "$RUNNER_TEMP/meltype-pages"
+      - name: Upload apt and dnf repositories for GitHub Pages
         if: steps.signing.outputs.ready == 'true'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: ${{ runner.temp }}/meltype-pages
 
-  publish-apt:
-    if: startsWith(github.ref, 'refs/tags/v') && needs.build-apt-repository.outputs.ready == 'true'
-    needs: build-apt-repository
+  publish-repositories:
+    if: startsWith(github.ref, 'refs/tags/v') && needs.build-repositories.outputs.ready == 'true'
+    needs: build-repositories
     runs-on: ubuntu-24.04
     concurrency:
-      group: meltype-apt-pages
+      group: meltype-pages
       cancel-in-progress: false
     permissions:
       contents: read
@@ -211,6 +299,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy apt repository to GitHub Pages
+      - name: Deploy apt and dnf repositories to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

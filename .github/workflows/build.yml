@@ -52,6 +52,14 @@ jobs:
       - name: Build
         run: dotnet build Meltype.sln -c Release
 
+      # Mozc-UT の辞書の統合 (native/mozc/merge-ut-dictionary.py)。本物の Mozc も辞書も要らない。
+      # 環境変数 MELTYPE_UT_DICTIONARY を指定したときだけ使うものなので、ビルドには影響しない。
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12'
+      - name: Test Mozc-UT dictionary merge
+        run: python native/mozc/tests/test_merge_ut_dictionary.py
+
       # Meltype IME (入力欄に直接入力する TSF の DLL)。C++ なので dotnet build とは別にビルドする (x64 と x86)。
       - name: Build Meltype IME
         shell: pwsh
@@ -109,6 +117,9 @@ jobs:
         run: dotnet run --project src/Meltype.Core.Tests/Meltype.Core.Tests.csproj -c Release
       - name: Linux Unicode key mapping (without IBus)
         run: python3 linux/tests/test_virtual_key.py
+      # Mozc-UT の辞書の統合 (native/mozc/merge-ut-dictionary.py)。本物の Mozc も辞書も要らない。
+      - name: Test Mozc-UT dictionary merge
+        run: python3 native/mozc/tests/test_merge_ut_dictionary.py
 
   # Mozc の変換ヘルパー (native/mozc) をビルドする。初回は 30〜40 分かかるので、配布用の zip を作るとき
   # (タグ・手動実行) と、ヘルパーのソースを変えたときだけ。Bazel の結果はキャッシュして次から速くする。

@@ -234,6 +234,9 @@ internal static class CompositionTests
         /// <summary>MeltypeEngine と同じく、アプリに届いた文字を追いかける。</summary>
         public SigilWord Sigil { get; } = new();
 
+        /// <summary>コードエディターのコードを打っているか (先頭の / を ・ にせず、そのまま渡す)。</summary>
+        public bool Code { get; set; }
+
         public long Now => _now;
 
         public FakeConverter Converter { get; } = new();
@@ -314,7 +317,12 @@ internal static class CompositionTests
         {
             if (!k.IsDown || _ctrlHeld) return false;
             if (k.Vk == VirtualKeys.Convert) return true;
-            if (SigilWords && (Direct || !Kana) && Host.CharFromKey(k, _shiftHeld) is { } typed && Sigil.PassesThrough(typed, Host.PrecedingText)) return false;
+            if (SigilWords && (Direct || !Kana) && Host.CharFromKey(k, _shiftHeld) is { } typed && Sigil.PassesThrough(typed, Host.PrecedingText))
+            {
+                if (typed != '/' || Direct || Sigil.IsActive || Code) return false;
+                Controller.MarkSlashAtStart();
+                return true;
+            }
             var letter = VirtualKeys.IsLetter(k.Vk);
             if (Direct) return letter && !_directEnglishWord && Level != Meltype.Config.DetectionLevel.Manual;
             if (Kana && Detection.KanaDetector.IsKanaKey(k.Vk)) return true;
@@ -376,6 +384,33 @@ internal static class CompositionTests
         }
 
         public string? Showing => Host.View?.Text;
+    }
+
+    private sealed class WideContextConverter : IKanjiConverter, IWideContextConverter
+    {
+        public string? WideContext { get; set; }
+        public string? Convert(string hiragana) => null;
+        public IReadOnlyList<ConversionClause>? ConvertClauses(string hiragana, string? context = null) => null;
+    }
+
+    [Test]
+    public static void WideContext_IsPassedToConvertersThatCanUseIt()
+    {
+        var converter = new WideContextConverter();
+        var k = new Keyboard(converter: converter);
+        k.Host.PrecedingText = "昨日は雨でしたが、\n今日は";
+        k.Type("kyou");
+        Assert.Equal("昨日は雨でしたが、今日は", converter.WideContext ?? "(なし)", "改行を除いて文をまたいで渡す");
+        var longText = string.Concat(Enumerable.Repeat("あ", 150)) + "終";
+        var l = new Keyboard(converter: converter);
+        l.Host.PrecedingText = longText;
+        l.Type("kyou");
+        Assert.Equal(100, converter.WideContext?.Length ?? 0, "最大 100 文字");
+        Assert.True(converter.WideContext!.EndsWith("終"), "キャレットに近い方を残す");
+        var e = new Keyboard(converter: converter);
+        e.Host.PrecedingText = "Hello, this is a pen. ";
+        e.Type("kyou");
+        Assert.True(converter.WideContext is null, "英文のときは渡さない");
     }
 
     [Test]
@@ -4375,7 +4410,8 @@ internal static class CompositionTests
         // #193: AI エージェントの /command・$skill・@ファイル名 は、変換ボックスに溜めずに打つたびにアプリへ渡す (補完を選べるように)。
         foreach (var word in new[] { "/review", "$skill-name", "@src/app.ts", "/kensaku" })
         {
-            var k = new Keyboard();
+            // 先頭の / をそのまま渡すのはコードエディターのコードの中だけ (文章の入力欄では ・ にする)。
+            var k = new Keyboard { Code = word[0] == '/' };
             k.Type(word);
             Assert.True(!k.Gate.IsCaptured && k.Showing is null, $"{word}: 変換ボックスを開かない");
             Assert.Equal(0, k.Host.Output.Count, word);
@@ -4384,9 +4420,38 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void SlashAtStart_IsMiddleDotInText()
+    {
+        // 文章の入力欄の打ち始めの / は ・ (Microsoft IME と同じ)。続けて打てば日本語のまま。
+        var k = new Keyboard();
+        k.Type("/");
+        Assert.Equal("・", k.Showing);
+        k.Type("kyou");
+        Assert.Equal("・きょう", k.Showing);
+        // Space で / にしてから名前を打つと、/ を確定して、名前は半角のままアプリへ渡す。名前の後の空白で日本語に戻る。
+        k = new Keyboard();
+        k.Type("/ ");
+        Assert.Equal("/", k.Showing);
+        k.Type("help");
+        Assert.Equal("/", string.Concat(k.Host.Output));
+        Assert.True(!k.Gate.IsCaptured && k.Sigil.IsActive, "/help の help はアプリへ");
+        Assert.True(k.Host.Events.Contains("down:48") && k.Host.Events.Contains("passed:50"), "help はアプリへ");
+        k.Type(" kyou");
+        Assert.Equal("きょう", k.Showing);
+        // 改行した後の行の先頭の / も ・ (1 回目の Enter は確定だけ)。
+        k = new Keyboard();
+        k.Type("kyouha\n\n/");
+        Assert.Equal("・", k.Showing);
+        // コードエディターのコードの中は今までどおり、そのままアプリへ渡す。
+        k = new Keyboard { Code = true };
+        k.Type("/help");
+        Assert.True(!k.Gate.IsCaptured && k.Sigil.IsActive, "コードの /help はアプリへ");
+    }
+
+    [Test]
     public static void SigilWord_SpaceAfterNameReturnsToNormal()
     {
-        var k = new Keyboard();
+        var k = new Keyboard { Code = true };
         k.Type("/review kyouha");
         Assert.Equal("きょうは", k.Showing);
         k.Press(VirtualKeys.Return);
@@ -4398,7 +4463,7 @@ internal static class CompositionTests
     public static void SigilWord_AfterCommittedEnglishWordAndSpace()
     {
         // google を Space で確定した (google + 空白) 後の /help も名前として通す。
-        var k = new Keyboard();
+        var k = new Keyboard { Code = true };
         k.Type("google /help");
         Assert.Equal("google ", string.Concat(k.Host.Output));
         Assert.True(!k.Gate.IsCaptured, "/help は変換ボックスに入れない");
@@ -4425,7 +4490,7 @@ internal static class CompositionTests
         k.Host.PrecedingText = "taro";
         k.Type("@");
         Assert.True(k.Gate.IsCaptured, "前が taro なら @ は変換ボックスに入れる");
-        k = new Keyboard();
+        k = new Keyboard { Code = true };
         k.Host.PrecedingText = "> ";
         k.Press(VirtualKeys.Left);
         k.Type("/");
@@ -4441,7 +4506,7 @@ internal static class CompositionTests
         k.Type("/");
         Assert.True(k.Gate.IsCaptured, "前の文字が分からなければ / は変換ボックスに入れる");
         // 記号まで消したら、記号の前 (先頭) に戻る。
-        k = new Keyboard();
+        k = new Keyboard { Code = true };
         k.Type("/re\b\b\b");
         Assert.True(!k.Sigil.IsActive, "/ を消したら名前ではない");
         k.Type("kyou");
@@ -4465,7 +4530,7 @@ internal static class CompositionTests
     public static void SigilWord_FocusMoved()
     {
         // 補完の候補の一覧にフォーカスが移ったように見えても、名前の途中なら続ける。
-        var k = new Keyboard();
+        var k = new Keyboard { Code = true };
         k.Type("/re");
         k.Sigil.FocusMoved();
         k.Type("view");

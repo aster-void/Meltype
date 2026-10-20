@@ -198,7 +198,7 @@ public sealed partial class CompositionDetector
         // 読みは長くても十数文字なので、前後 8 単位まで見れば足りる
         for (var start = Math.Max(0, unit - 8); start <= unit; start++)
             for (var end = unit + 1; end <= Math.Min(units.Count, unit + 9); end++)
-                if (Kana(units, start, end) is { Length: >= 3 } kana && Readings.Value.Contains(kana)) return true;
+                if (Kana(units, start, end) is { Length: >= 3 } kana && CommonReadings.Words.Contains(kana)) return true;
         return false;
     }
 

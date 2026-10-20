@@ -77,10 +77,17 @@ public sealed class MozcConverter : IKanjiConverter, ILearningConverter, IDispos
     public string? Convert(string hiragana) =>
         ConvertClauses(hiragana) is { Count: > 0 } clauses ? string.Concat(clauses.Select(c => c.Text)) : null;
 
-    public IReadOnlyList<ConversionClause>? ConvertClauses(string hiragana, string? context = null)
+    public IReadOnlyList<ConversionClause>? ConvertClauses(string hiragana, string? context = null) =>
+        ConvertWithCandidates(hiragana, context)?.Select(s => s.Clause).ToList();
+
+    /// <summary>
+    /// ConvertClauses と同じ文節と、この変換で受け取った文節ごとの候補。
+    /// 候補の控え (Candidates) は、ほかの変換や覚えさせたときに捨てられることがあるので使わない (聞き直すと入力が待たされる)。
+    /// </summary>
+    internal IReadOnlyList<(ConversionClause Clause, IReadOnlyList<string> Candidates)>? ConvertWithCandidates(string hiragana, string? context = null)
     {
         if (Request(context ?? "", hiragana) is not { Count: > 0 } segments) return null;
-        return segments.Select(s => new ConversionClause(s.Reading, s.Candidates.FirstOrDefault() ?? s.Reading)).ToList();
+        return segments.Select(s => (new ConversionClause(s.Reading, s.Candidates.FirstOrDefault() ?? s.Reading), s.Candidates)).ToList();
     }
 
     /// <summary>読みの変換候補 (多い順)。直前の変換で同じ読みの文節があればその候補、無ければその読みだけで変換する。</summary>

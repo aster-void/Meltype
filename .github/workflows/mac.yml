@@ -122,14 +122,14 @@ jobs:
           cask='dist/manifests/homebrew/Casks/meltype.rb'
           version="${GITHUB_REF_NAME#v}"
           branch="homebrew-cask-${version}"
-          current_version="$(gh api "repos/$GITHUB_REPOSITORY/contents/Casks/meltype.rb" --jq '.content | @base64d' | sed -n 's/^  version "\([^"]*\)"$/\1/p')"
-          if [[ "$current_version" == "$version" ]]; then
-            echo "Homebrew cask is already at $version."
+          current_cask_sha="$(gh api "repos/$GITHUB_REPOSITORY/contents/Casks/meltype.rb" --jq .sha)"
+          generated_cask_sha="$(git hash-object "$cask")"
+          if [[ "$current_cask_sha" == "$generated_cask_sha" ]]; then
+            echo "Homebrew cask is already up to date for $version."
             exit 0
           fi
 
-          branch_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq .object.sha 2>/dev/null || true)"
-          if [[ -z "$branch_sha" ]]; then
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" >/dev/null 2>&1; then
             main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
             gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
               -f ref="refs/heads/$branch" -f sha="$main_sha"

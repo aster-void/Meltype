@@ -11,15 +11,17 @@ import path from 'node:path';
 const api = process.env.GITHUB_API_URL ?? 'https://api.github.com';
 const repo = process.env.GITHUB_REPOSITORY;
 const token = process.env.GITHUB_TOKEN;
+// workflow_dispatch は bot の App に Actions の権限が無いので、job の GITHUB_TOKEN (actions: write) で叩く
+const dispatchToken = process.env.BOT_DISPATCH_TOKEN || token;
 const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
 const Marker = '<!-- meltype-bot -->';
 const Maintainers = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 const MaxKeys = 300;
 
-async function gh(method, url, body) {
+async function gh(method, url, body, auth = token) {
   const response = await fetch(`${api}/repos/${repo}${url}`, {
     method,
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'meltype-bot' },
+    headers: { Authorization: `Bearer ${auth}`, Accept: 'application/vnd.github+json', 'User-Agent': 'meltype-bot' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) throw new Error(`${method} ${url}: ${response.status} ${await response.text()}`);
@@ -245,7 +247,7 @@ async function releaseCommand(issue, command, version) {
   const started = [], failed = [];
   for (const workflow of ['build.yml', 'mac.yml', 'linux.yml']) {
     try {
-      await gh('POST', `/actions/workflows/${workflow}/dispatches`, { ref: tag });
+      await gh('POST', `/actions/workflows/${workflow}/dispatches`, { ref: tag }, dispatchToken);
       started.push(workflow);
     } catch (error) {
       failed.push(`${workflow}: ${error.message.slice(0, 120)}`);

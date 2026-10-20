@@ -208,7 +208,7 @@ public sealed class Settings
     public bool DirectModeAutoDetect { get; set; } = true;
 
     [Category("1. 全般"), DisplayName("/ $ @ で始まる語はそのまま入力"),
-     Description("Keyboard モードで、入力欄・行の先頭か空白の直後に打った / $ @ と、続く名前 (空白まで) は変換せず、打つたびにそのままアプリに渡します (AI エージェントの /command・$skill・@ファイル名 の補完を選びやすく)。名前の後に空白を打つと、普通の自動判定に戻ります。")]
+     Description("Keyboard モードで、入力欄・行の先頭か空白の直後に打った / $ @ と、続く名前 (空白まで) は変換せず、打つたびにそのままアプリに渡します (AI エージェントの /command・$skill・@ファイル名 の補完を選びやすく)。名前の後に空白を打つと、普通の自動判定に戻ります。文章の入力欄 (コードエディターのコード以外) の / は「・」として入り、Space で / にしてから名前を打つと、名前はそのまま渡します。")]
     public bool SigilWordsDirect { get; set; } = true;
 
     [Category("1. 全般"), DisplayName("定型文を出す記号"),
@@ -335,6 +335,18 @@ public sealed class Settings
      Description("かな漢字変換に使うエンジン。「両方」は Mozc (Google 日本語入力のオープンソース版) で変換し、Mozc が使えないときは Microsoft IME で変換します。候補には両方の候補が出ます。")]
     public ConversionEngine ConversionEngine { get; set; } = ConversionEngine.Hybrid;
 
+    [Category("1. 全般"), DisplayName("Zenzai を使う (Windows・実験)"),
+     Description("ニューラルかな漢字変換モデル Zenzai (azooKey の zenz) で変換します。llama.cpp の llama-server と zenz の GGUF ファイルを自分で用意し、下の 2 つの場所を指定してください (どちらも Meltype には同梱しません)。使えないとき・応答が遅いときは、今までの変換エンジンで変換します。変換結果は、Mozc の文節ごとの候補で作れるときは Mozc の文節に分け、作れないときは読み全体で 1 つの文節になります。既定は OFF です。")]
+    public bool UseZenzai { get; set; }
+
+    [Category("1. 全般"), DisplayName("Zenzai: llama-server の場所"),
+     Description("llama.cpp の llama-server (Windows では llama-server.exe) の場所。「Zenzai を使う」が ON のときに使います。")]
+    public string ZenzaiServerPath { get; set; } = "";
+
+    [Category("1. 全般"), DisplayName("Zenzai: モデル (GGUF) の場所"),
+     Description("zenz のモデルファイル (例: zenz-v3.1-small の ggml-model-Q5_K_M.gguf) の場所。「Zenzai を使う」が ON のときに使います。")]
+    public string ZenzaiModelPath { get; set; } = "";
+
     [Category("1. 全般"), DisplayName("英訳の候補"),
      Description("変換の候補の後ろに英訳も出します (複雑な → complex, complicated)。JMdict のよく使う語から。選んだ英訳は少しずつ前に出ます。")]
     public bool TranslationCandidates { get; set; } = true;
@@ -380,7 +392,7 @@ public sealed class Settings
     public bool CorrectTypos { get; set; } = true;
 
     [Category("1. 全般"), DisplayName("/ キーで中黒「・」"),
-     Description("かなのすぐ後ろで打った / を中黒「・」にします (いーろん/ますく → イーロン・マスク)。英字・数字の後ろ (and/or、3/4、URL) と、打ち始めの / (/help) は / のままです。OFF のときも、z/ または / を打って Space で「・」にできます。")]
+     Description("かなのすぐ後ろで打った / を中黒「・」にします (いーろん/ますく → イーロン・マスク)。英字・数字の後ろ (and/or、3/4、URL) は / のままです。文章の入力欄の打ち始めの / は、この設定に関係なく「・」になり、Space で / にできます。OFF のときも、z/ または / を打って Space で「・」にできます。")]
     public bool SlashAsMiddleDot { get; set; }
 
     [Category("1. 全般"), DisplayName("入力モードをカーソルの近くに表示"),

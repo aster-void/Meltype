@@ -110,6 +110,11 @@ public sealed record CompositionOptions
     /// <summary>かな漢字変換のエンジン (Windows の CompositionService が Mozc / Microsoft IME を選ぶのに使う)。</summary>
     public Func<Config.ConversionEngine> Engine { get; init; } = () => Config.ConversionEngine.System;
 
+    /// <summary>設定「Zenzai を使う」と、llama-server・モデル (GGUF) の場所 (Windows)。</summary>
+    public Func<bool> UseZenzai { get; init; } = () => false;
+    public Func<string> ZenzaiServerPath { get; init; } = () => "";
+    public Func<string> ZenzaiModelPath { get; init; } = () => "";
+
     /// <summary>英数 (直接入力) 状態か。</summary>
     public Func<bool> DirectMode { get; init; } = () => false;
 
@@ -310,6 +315,7 @@ public sealed class CompositionController
     private readonly ICompositionHost _host;
     private readonly CompositionOptions _options;
     private readonly Dictionary<string, string> _conversionCache = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _standaloneCache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<(string Reading, string Text)>> _liveCache = new(StringComparer.Ordinal);
     private readonly HashSet<int> _swallowedShift = [];
     private readonly HashSet<int> _swallowedControl = [];
@@ -385,6 +391,7 @@ public sealed class CompositionController
         if (_options.RomajiTypos is { } lexicon) detector.IsCommonJapanese ??= lexicon.IsCommonJapanese;
         _text.CorrectTypos = () => _options.CorrectTypos();
         _text.SlashAsMiddleDot = () => _options.SlashAsMiddleDot();
+        _text.SlashAtStart = () => Interlocked.Exchange(ref _slashAtStart, 0) == 1;
     }
 
     /// <summary>変換ボックスに入力中か、英数状態で打ち始めの語を判定中か。</summary>
@@ -861,6 +868,13 @@ public sealed class CompositionController
 
         if (_host.CharFromKey(e, _swallowedShift.Count > 0) is { } ch && !char.IsControl(ch) && ch != ' ')
         {
+            // 打ち始めの ・ を Space で / にしてから打った名前 (/help) は、/ を確定して半角のままアプリへ渡す。
+            if (_converting && _text.IsSlashAtStart && _clauses is [{ Text: "/" }] && SigilWord.IsNameChar(ch))
+            {
+                Commit();
+                ReplayDown(e);
+                return;
+            }
             CommitBeforeTyping();
             _text.Append(ch);
             return;
@@ -1069,6 +1083,7 @@ public sealed class CompositionController
         // 自分が確定した直後は、アプリ側のテキストがまだ更新されていないかもしれないので自分の記録を信じる。
         var recentOwnCommit = Environment.TickCount64 - _lastCommitTime < OwnCommitTrustMs;
         _precedingText = _lastCommitEnglish is null ? null : _lastCommitText;
+        UpdateWideContext();
         _followingText = null;
         _caretBefore = null; // 読み直せなければ (返ってこなければ) キャレットの位置は確かめない = 今までどおり直す
         _text.PrecedingEnglish = _lastCommitEnglish;
@@ -1085,6 +1100,7 @@ public sealed class CompositionController
             if (!recentOwnCommit && before is not null)
             {
                 _precedingText = before;
+                UpdateWideContext();
                 if (LanguageOf(before) is { } english) _text.PrecedingEnglish = english;
                 UpdateLearningContext();
                 _text.PrecedingEnglishSentence = IsEnglishSentence(before);
@@ -1610,10 +1626,20 @@ public sealed class CompositionController
         // 変換したあとに続けて打っていたら、前に選んでいた候補を同じ読みの文節で使う
         foreach (var clause in clauses)
             if (_keptChoices.TryGetValue(clause.Reading, out var kept) && clause.Candidates.Contains(kept)) Prefer(clause, kept);
+        // 打ち始めの ・ は、Space で / にする。
+        if (_text.IsSlashAtStart && clauses is [var slash]) Prefer(slash, "/");
         _clauses = clauses;
         _selectedClause = 0;
         _converting = true;
     }
+
+    /// <summary>
+    /// 次に空の変換ボックスへ入れる / は、文章の入力欄の打ち始め (先頭か空白の直後) に打ったもの。・ にする。
+    /// フックのスレッドから、その / で変換ボックスを開くときに呼ぶ。
+    /// </summary>
+    public void MarkSlashAtStart() => Interlocked.Exchange(ref _slashAtStart, 1);
+
+    private int _slashAtStart;
 
     /// <summary>
     /// 英訳の候補 (複雑な → complex, complicated …) を、日本語の候補の後ろに足す。
@@ -1845,7 +1871,7 @@ public sealed class CompositionController
             // 変換エンジンは、文節が「から」だけだと記号 (～) にしてしまう。記号だけの変換結果は、ひらがなの後ろに回す。
             preferred ??= IsSymbolOnly(clauses[i].Text) && clauses[i].Reading.All(KanaChars.IsHiragana) ? clauses[i].Reading : null;
             // 英単語に挟まれて助詞だけの文節になると、変換エンジンは漢字にしてしまう (github + に + push → 二)。助詞はかなのまま。
-            preferred ??= Particles.Contains(clauses[i].Reading) && clauses[i].Text != clauses[i].Reading ? clauses[i].Reading : null;
+            preferred ??= JapaneseParticles.IsParticle(clauses[i].Reading) && clauses[i].Text != clauses[i].Reading ? clauses[i].Reading : null;
             // カタカナの語の後ろの「っ」で始まる文節 (スパイダーマ + っ！) は、カタカナの「ッ」にする (スパイダーマッ！)。
             preferred ??= i > 0 && clauses[i].Text.StartsWith('っ') && clauses[i - 1].Text is [.., var last] && last is >= 'ァ' and <= 'ヺ' or 'ー'
                 ? "ッ" + clauses[i].Text[1..] : null;
@@ -1988,9 +2014,15 @@ public sealed class CompositionController
         return text.Length == 0 ? null : text.Length > 10 ? text[^10..] : text;
     }
 
-    private static readonly char[] SentenceEnds = ['。', '．', '！', '？', '\n', '\r'];
+    /// <summary>広い文脈 (文をまたいで最大 100 文字の、日本語の文章) を、使える変換エンジン (Zenzai) に渡す。英文のときは渡さない。</summary>
+    private void UpdateWideContext()
+    {
+        if (_converter is not IWideContextConverter wide) return;
+        var text = _precedingText?.Replace("\r", "").Replace("\n", "").Trim();
+        wide.WideContext = string.IsNullOrEmpty(text) || LanguageOf(text) != false ? null : text.Length > 100 ? text[^100..] : text;
+    }
 
-    private static readonly HashSet<string> Particles = ["は", "が", "を", "に", "で", "と", "も", "へ", "の", "や", "か", "から", "まで", "より"];
+    private static readonly char[] SentenceEnds = ['。', '．', '！', '？', '\n', '\r'];
 
     private static bool IsSymbolOnly(string text) => text.Length > 0 && !text.Any(char.IsLetterOrDigit);
 
@@ -2011,7 +2043,9 @@ public sealed class CompositionController
         // ユーザー辞書に登録した単語は、文の中での変換結果の次に出す (文節の区切りを変えて読みが一致したときなど)。
         var candidates = Distinct(inContext);
         foreach (var word in _options.UserDictionary?.Lookup(reading) ?? []) if (!candidates.Contains(word)) candidates.Add(word);
-        if (Convert(reading) is var standalone && !candidates.Contains(standalone)) candidates.Add(standalone);
+        // 文の中での変換結果が無いとき (文節の区切りを変えた・打っている途中の候補) は、その読みだけの変換が最初の候補になるので、Zenzai も使う (Convert)
+        var standalone = inContext is null ? Convert(reading) : Standalone(reading);
+        if (!candidates.Contains(standalone)) candidates.Add(standalone);
         foreach (var extra in _options.Candidates?.LookupWords(reading) ?? [])
         {
             if (!candidates.Contains(extra)) candidates.Add(extra);
@@ -2422,6 +2456,20 @@ public sealed class CompositionController
         var converted = NormalizeHalfWidth(_converter.Convert(kana) ?? kana, kana);
         if (_conversionCache.Count > 256) _conversionCache.Clear();
         _conversionCache[kana] = converted;
+        return converted;
+    }
+
+    /// <summary>
+    /// 文の中での変換結果がある文節の候補に足す「その読みだけの変換」。Zenzai を使える変換エンジンでも Zenzai には頼まない (IStandaloneConverter)。
+    /// 文を変換するたびに文節の数だけ頼むので、Zenzai に頼むと文節の数だけ待たされる。最初の候補は文の中での変換結果なので変わらない。
+    /// </summary>
+    private string Standalone(string kana)
+    {
+        if (_converter is not IStandaloneConverter standalone) return Convert(kana);
+        if (_standaloneCache.TryGetValue(kana, out var cached)) return cached;
+        var converted = NormalizeHalfWidth(standalone.ConvertStandalone(kana) ?? kana, kana);
+        if (_standaloneCache.Count > 256) _standaloneCache.Clear();
+        _standaloneCache[kana] = converted;
         return converted;
     }
 

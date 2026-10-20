@@ -82,6 +82,22 @@ internal static class Program
                 Jht.Batch(null, Henkan.Keyboard, () => Henkan.EngineName);
                 Henkan.Shutdown();
                 return 0;
+            case "--dictionary-memory":
+                // 組み込み辞書ごとの、読み込む前と後のマネージドヒープの差と読み込みの時間
+                DictionaryMemory.Measure();
+                return 0;
+            case "--dictionary-dump":
+                // --dictionary-dump 出力ファイル: 組み込み辞書の引き方の答えを書き出す (辞書の持ち方を変える前と後で diff する)
+                DictionaryMemory.Dump(args[1]);
+                return 0;
+            case "--dictionary-bench":
+                // --dictionary-bench [回数]: 1 打鍵あたりの時間と割り当て
+                DictionaryMemory.Bench(args.Length > 1 ? int.Parse(args[1]) : 15);
+                return 0;
+            case "--dictionary-lookup-bench":
+                // --dictionary-lookup-bench [回数]: 意味・英訳を直接引いたときの 1 検索あたりの時間と割り当て
+                DictionaryMemory.LookupBench(args.Length > 1 ? int.Parse(args[1]) : 7);
+                return 0;
             case "--explain":
                 if (Environment.GetEnvironmentVariable("MELTYPE_UTF8") == "1") Console.OutputEncoding = new System.Text.UTF8Encoding(false);
                 TestHost.Explain(args.Skip(1));

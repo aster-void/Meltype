@@ -18,7 +18,7 @@
 | `src/Meltype.Mac.Native/` | Mac 版の IME から呼ぶ C の関数 (Meltype.Core を NativeAOT で dylib にする) |
 | `mac/` | Mac 版の IME (Swift、Input Method Kit。漢字変換は azooKey) |
 | `linux/` | Linux 版 (IBus・fcitx5 のエンジン) |
-| `native/` | Meltype IME (Windows の TSF の DLL) と Mozc のヘルパー |
+| `native/` | Meltype IME (Windows の TSF の DLL) と Mozc のヘルパー ([native/mozc/README.md](../native/mozc/README.md)。Mozc-UT の辞書は [MOZC-UT.md](MOZC-UT.md)) |
 | `src/Meltype.Core.Tests/` | 共通部分のテスト (判定・変換ボックス・学習・品質テスト)。Mac・Linux でも動く |
 | `src/Meltype.Tests/` | Windows 版のテストと調査用の道具 (共通部分のテストもまとめて流す) |
 | `dictionaries/` | 組み込みの辞書 |

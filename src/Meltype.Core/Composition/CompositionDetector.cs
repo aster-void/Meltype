@@ -55,12 +55,7 @@ public sealed partial class CompositionDetector
         return new CompositionDetector(romaji, japanese, english, new TypoDetector(japanese.Words), proper, new KanaDetector(japaneseWords, romaji));
     }
 
-    private static readonly Lazy<WordList> ReadableEnglish = new(() =>
-    {
-        var list = new WordList();
-        foreach (var word in DictionarySource.Load("english-readable.txt", null)) list.Add(word);
-        return list;
-    });
+    private static readonly Lazy<WordList> ReadableEnglish = new(() => new WordList(DictionarySource.Load("english-readable.txt", null)));
 
     /// <summary>english.txt の「日本語由来で英語としても使われる語」(sushi, anime, tofu …)。</summary>
     private static readonly Lazy<HashSet<string>> JapaneseOriginWords = new(() =>
@@ -525,13 +520,7 @@ public sealed partial class CompositionDetector
     internal bool IsJapaneseWordOrPrefix(string kana) => _kana?.IsJapaneseWordOrPrefix(kana) == true;
 
     /// <summary>kana が、よく使う語の読み (readings.txt、3 文字以上) かその頭か (すいちょ = すいちょく の頭)。</summary>
-    internal static bool IsJapaneseReadingOrPrefix(string kana)
-    {
-        var readings = SortedReadings.Value;
-        var index = Array.BinarySearch(readings, kana, StringComparer.Ordinal);
-        if (index >= 0) return true;
-        return ~index < readings.Length && readings[~index].StartsWith(kana, StringComparison.Ordinal);
-    }
+    internal static bool IsJapaneseReadingOrPrefix(string kana) => kana.Length >= 3 && CommonReadings.Words.HasPrefix(kana);
 
     /// <summary>スペルチェッカーが正しいと言う英単語か、よくある打ち間違い (teh、recieve) か。</summary>
     internal bool IsSpellWord(string lower) => SpellChecker is { } checker && (checker.IsWord(lower) || checker.AutoCorrection(lower) is not null);
@@ -619,16 +608,6 @@ public sealed partial class CompositionDetector
         return lower.Length == stem || lower.Length - stem >= 3;
     }
 
-    /// <summary>よく使う語の読み (readings.txt、3 文字以上)。かな入力で、英単語のキーが日本語の語を打っていないかを見る。</summary>
-    private static readonly Lazy<HashSet<string>> Readings = new(() =>
-        DictionarySource.ReadEmbedded("readings.txt").Split('\n')
-            .Select(line => line.Split('\t')[0].Trim())
-            .Where(reading => reading.Length >= 3 && !reading.StartsWith('#'))
-            .ToHashSet(StringComparer.Ordinal));
-
-    /// <summary>よく使う語の読み (readings.txt、3 文字以上) を並べたもの。読みの頭かどうかを二分探索で調べる。</summary>
-    private static readonly Lazy<string[]> SortedReadings = new(() => Readings.Value.Order(StringComparer.Ordinal).ToArray());
-
     /// <summary>
     /// かなの大部分 (3/4 以上) を占める、3 文字以上のよく使う語があるか。語は後ろのかな (kanaAfter) にはみ出してもよい
     /// (てにはい + る = 手に入る)。
@@ -639,7 +618,7 @@ public sealed partial class CompositionDetector
         for (var start = 0; start < kana.Length; start++)
             for (var length = 3; start + length <= text.Length; length++)
                 if (Math.Min(start + length, kana.Length) - start is var inside && inside * 100 >= kana.Length * 75 &&
-                    Readings.Value.Contains(text.Substring(start, length))) return true;
+                    CommonReadings.Words.Contains(text.AsSpan(start, length))) return true;
         return false;
     }
 
