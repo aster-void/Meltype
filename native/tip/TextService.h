@@ -130,6 +130,8 @@ private:
     std::string CommitRequest(bool moved) const;
     void UnadviseTextEditSink();
     void UpdateLangBar();
+    // IME の ON/OFF が変わったとき、常駐側の「あ / A」を一瞬表示する。
+    void FlashModeIndicator(ITfContext* context = nullptr);
 
     LONG refs_ = 1;
     ITfThreadMgr* threadMgr_ = nullptr;
@@ -154,6 +156,7 @@ private:
     bool fullWidthSpace_ = false;  // 設定「スペースを全角で入力」(Meltype.exe の応答の fullWidthSpace。日本語入力のときは Space も受け取る)
     ULONGLONG lastHello_ = 0;
     bool open_ = true;
+    bool togglingMode_ = false;   // 1 回の切り替えの途中の開閉通知では表示せず、最終的なモードを表示する
     bool codeApp_ = false;         // コードエディター・ターミナル (Meltype.exe の応答の code)
     bool codeEnglish_ = false;     // 次に打つキーがコードの行なので英数のまま通る (Meltype.exe の応答の english)
     UINT passedVk_ = 0;            // 最後にアプリに通したキー (キャレットが動いたときに Meltype.exe に伝える)
