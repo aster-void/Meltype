@@ -35,6 +35,8 @@ internal static class CompositionTests
             return hiragana switch
             {
                 "たんいをとる" => [new("たんいを", "単位を"), new("とる", "取る")],
+                // 英語として見せている語 (Make) も、読み (まけ) にして区切る
+                "きょうはまけ" => [new("きょうは", "今日は"), new("まけ", "負け")],
                 "ひるか" => [new("ひる", "昼"), new("か", "化")],
                 // 本物の変換エンジンは、前に同じ語があると区切りを変える (「記号等」含め、 + きごうとう → 気強盗)。
                 "きごうとう" when context?.Contains("記号等") == true => [new("き", "気"), new("ごうとう", "強盗")],
@@ -697,6 +699,25 @@ internal static class CompositionTests
         var off = new Keyboard(predictor: new Predictor(phrases, null, null));
         off.Type("tanniwotoru");
         Assert.True(off.Host.View!.Predictions is null, "OFF: " + string.Join(",", off.Host.View.Predictions ?? []));
+    }
+
+    [Test]
+    public static void Prediction_EnglishAtEndUsesWholeReading()
+    {
+        // 英語として見せている語で終わるとき (きょうはMake) は、前に残す文字が分からないので、最後の文節 (まけ) の続きは出さずに読み全体の続きだけにする
+        var phrases = new PhraseHistory(null);
+        phrases.Remember("まけおしみ", "負け惜しみ");
+        phrases.Remember("きょうはまけた", "今日は負けた");
+        var k = new Keyboard(live: true, predictor: new Predictor(phrases, null, null));
+        k.Type("kyouhaMake");
+        Assert.True(k.Showing.EndsWith("Make", StringComparison.Ordinal), k.Showing);
+        Assert.Equal("今日は負けた", string.Join(",", k.Host.View!.Predictions ?? []));
+
+        // 同じ読みでも、日本語で見えていれば最後の文節の続きを出す
+        var japanese = new Keyboard(live: true, predictor: new Predictor(phrases, null, null));
+        japanese.Type("kyouhamake");
+        Assert.Equal("今日は負け", japanese.Showing);
+        Assert.True(japanese.Host.View!.Predictions?.Contains("負け惜しみ") == true, "最後の文節の続き: " + string.Join(",", japanese.Host.View.Predictions ?? []));
     }
 
     [Test]
