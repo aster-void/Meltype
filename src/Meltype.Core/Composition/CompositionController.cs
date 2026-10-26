@@ -2109,7 +2109,7 @@ public sealed class CompositionController
     /// <summary>
     /// いま・なう の文節に今の日時、きょう の文節に今日の日付を候補として出す (issue #208)。
     /// いま → 17:22 / 17時22分 / 午後5時22分 / 2026年10月9日(金) 17時22分 / 10月9日(金) 17:22 …
-    /// きょう → 2026年10月9日 / 2026年10月9日(金) / 10月9日(金) / 2026/10/09 / 2026/10/09(金) / 10/9(金) / 2026-10-09 / 金曜日 …
+    /// きょう → 2026年10月9日 / 2026年10月9日(金) / 10月9日(金) / 2026/10/09 / 2026/10/09(金) / 10/9(金) / 2026-10-09 / 金曜日 / 20261009 …
     /// </summary>
     private IEnumerable<string> TimeCandidates(string reading)
     {
@@ -2129,7 +2129,7 @@ public sealed class CompositionController
         var clock = $"{now.Hour:D2}:{now.Minute:D2}";
         if (!isNow)
             return [date, $"{date}({day})", monthDay, $"{monthDay}({day})", slashDate, $"{slashDate}({day})", $"{now.Month}/{now.Day}({day})",
-                $"{now.Year:D4}-{now.Month:D2}-{now.Day:D2}", $"{day}曜日"];
+                $"{now.Year:D4}-{now.Month:D2}-{now.Day:D2}", $"{day}曜日", $"{now.Year:D4}{now.Month:D2}{now.Day:D2}"];
         var time = $"{now.Hour}時{now.Minute}分";
         return [clock, time, $"{(now.Hour < 12 ? "午前" : "午後")}{now.Hour % 12}時{now.Minute}分",
             $"{date}({day}) {time}", $"{monthDay}({day}) {time}", $"{date}({day}) {clock}", $"{slashDate} {clock}"];
