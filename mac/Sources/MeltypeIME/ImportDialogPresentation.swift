@@ -28,7 +28,7 @@ enum ImportDialogPresentation {
     private static var isPresenting = false
 
     static func run(application: ImportDialogApplication = NSApplication.shared, body: () -> Void) throws {
-        // モーダル画面の表示中に入力メニューから再実行しても、画面を重ねない。
+        // body から同期的に再入しても、内側の表示処理やポリシー変更を行わない。
         guard !isPresenting else { return }
         isPresenting = true
         defer { isPresenting = false }

@@ -26,20 +26,21 @@ final class ImportDialogPresentationTests: XCTestCase {
         }
     }
 
-    func testPanelAndResultNotificationRunWithActivationAllowed() throws {
+    // Application は模擬実装。実際のパネル・通知・メニュー操作は検証しない。
+    func testBodyRunsWithActivationAllowedAndRestoresPolicy() throws {
         let application = Application()
-        var presented = false
+        var bodyExecuted = false
         try ImportDialogPresentation.run(application: application) {
             XCTAssertEqual(application.policy, .accessory)
             XCTAssertEqual(application.activationCount, 1)
-            presented = true
+            bodyExecuted = true
         }
-        XCTAssertTrue(presented)
+        XCTAssertTrue(bodyExecuted)
         XCTAssertEqual(application.policy, .prohibited)
         XCTAssertEqual(application.requestedPolicies, [.accessory, .prohibited])
     }
 
-    func testCancelRestoresEachOriginalPolicy() throws {
+    func testEarlyReturnFromBodyRestoresEachOriginalPolicy() throws {
         for policy in [NSApplication.ActivationPolicy.prohibited, .accessory, .regular] {
             let application = Application()
             application.policy = policy
@@ -48,11 +49,11 @@ final class ImportDialogPresentationTests: XCTestCase {
         }
     }
 
-    func testPolicyFailureDoesNotOpenPanelAndAllowsNextAttempt() throws {
+    func testPolicyFailureDoesNotRunBodyAndAllowsNextAttempt() throws {
         let application = Application()
         application.rejectedPolicy = .accessory
         XCTAssertThrowsError(try ImportDialogPresentation.run(application: application) {
-            XCTFail("前面化を許可できないときは画面を開かない")
+            XCTFail("前面化を許可できないときはクロージャを実行しない")
         })
         XCTAssertEqual(application.policy, .prohibited)
         XCTAssertEqual(application.activationCount, 0)
@@ -71,14 +72,14 @@ final class ImportDialogPresentationTests: XCTestCase {
         }
     }
 
-    func testReentrantMenuActionDoesNotOpenSecondPanelOrRestoreEarly() throws {
+    func testSynchronousReentryDoesNotRunNestedBodyOrRestoreEarly() throws {
         let application = Application()
         try ImportDialogPresentation.run(application: application) {
             do {
                 try ImportDialogPresentation.run(application: application) {
-                    XCTFail("表示中の画面を重ねない")
+                    XCTFail("同期的な再入では内側のクロージャを実行しない")
                 }
-            } catch { XCTFail("再実行は表示中の画面を維持する: \(error)") }
+            } catch { XCTFail("同期的な再入では例外を投げない: \(error)") }
             XCTAssertEqual(application.policy, .accessory)
             XCTAssertEqual(application.activationCount, 1)
         }
