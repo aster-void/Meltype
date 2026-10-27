@@ -229,7 +229,6 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* threadMgr, TfClientId clientI
     // Windows は、同じアプリの中で一度終えた IME を、同じオブジェクトのまま起動し直すことがある。前の状態をすべて初期化する
     // (終わったときの印 deactivated_ が残ると、二度と Meltype.exe とやり取りしなくなる)
     deactivated_ = false;
-    togglingMode_ = false;
     serverActive_ = false;
     directDetection_ = false;
     directEnglishWord_ = false;
@@ -606,7 +605,6 @@ STDMETHODIMP TextService::OnEndEdit(ITfContext* context, TfEditCookie ec, ITfEdi
 
 STDMETHODIMP TextService::OnChange(REFGUID guid) {
     if (!IsEqualGUID(guid, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE) || threadMgr_ == nullptr) return S_OK;
-    bool wasOpen = open_;
     ITfCompartmentMgr* compartments = nullptr;
     if (FAILED(threadMgr_->QueryInterface(IID_ITfCompartmentMgr, reinterpret_cast<void**>(&compartments)))) return S_OK;
     ITfCompartment* openClose = nullptr;
@@ -624,7 +622,8 @@ STDMETHODIMP TextService::OnChange(REFGUID guid) {
     TipLog(L"入力モード: %s", open_ ? L"日本語" : L"英数");
     if (!open_ && composition_ != nullptr) CommitAsync(false);
     UpdateLangBar();
-    if (open_ != wasOpen && !togglingMode_) FlashModeIndicator();
+    // アプリ・Windows による自動的な開閉 (パスワード欄への移動など) では表示しない。
+    // 明示的な切り替えの表示は ToggleInputMode の最後で 1 回だけ依頼する。
     return S_OK;
 }
 
@@ -1028,7 +1027,6 @@ void TextService::ToggleInputMode(ITfContext* context) {
         context = focused.Get();
     }
     const bool wasJapanese = IsOpen();
-    togglingMode_ = true;
     if (wasJapanese) {
         // 日本語 → 英数。コードの行を日本語にしていたなら、その行を英数に戻す (IME は開いたまま。コメント・文字列はまた日本語になる)。
         // それ以外は IME を閉じる
@@ -1038,7 +1036,6 @@ void TextService::ToggleInputMode(ITfContext* context) {
         if (!open_) SetOpen(true);
         if (codeApp_ && codeEnglish_) SetCodeLine(context, true);
     }
-    togglingMode_ = false;
     // Terminal・コードの行では IME 自体を開いたまま切り替わり、OnChange は来ない。
     if (wasJapanese != IsOpen()) FlashModeIndicator(context);
 }

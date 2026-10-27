@@ -445,8 +445,13 @@ internal sealed class MeltypeEngine : IDisposable
             {
                 // 日本語のキーボードでなければ IME は無い
                 if (ImeTarget.FromForeground() is not { } target || (Native.GetKeyboardLayout(target.ThreadId).ToInt64() & 0xFFFF) != 0x0411) return;
+                var previous = _imm32.GetState(target).Mode;
                 if (_imm32.TrySetOpen(target, japanese, null, _settings.ImeTimeoutMs))
+                {
                     Log.Info(japanese ? "左右の Alt: 日本語入力にしました (右 Alt)" : "左右の Alt: 英数にしました (左 Alt)");
+                    if (previous == (japanese ? IME.ImeMode.Closed : IME.ImeMode.Open))
+                        _composition?.ShowMode(japanese, target.ThreadId);
+                }
                 else
                     Log.Warn($"左右の Alt: {(japanese ? "日本語入力" : "英数")}にできませんでした。");
             }
