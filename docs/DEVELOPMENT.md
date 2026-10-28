@@ -113,6 +113,20 @@ Windows のアプリ本体は GUI アプリ (WinExe) なので、cmd では版�
 - Windows の英語のスペルチェッカーが使える環境では、それも使います (`MELTYPE_NO_SPELLCHECK=1` で使わずに測れます)
 - Pull Request では「精度の比較」のチェックが main と比べ、新しく外れた例があれば失敗にします
 - 新しい不具合の報告を受けたら、まずここに例を足してから直すのがおすすめです
+- 直した語だけでなく、**逆向き・似た入力の例** も足してください。たとえば `midi` を英語にする直し (#1122) は、`midika` (身近) を `midiか` にしてしまいました (#1179)。英語にする直しなら、その語で始まる日本語の語を、日本語にする直しなら、その語を含む英単語を足します
+
+<a name="よく使う語の判定の変化"></a>
+**よく使う語の判定の変化 (影響範囲の確認)**: 品質テストの例は数百個なので、そこに無い語が変わっても気づけません。
+「精度の比較」のチェックは、よく使う語の読み (`dictionaries/readings.txt` をローマ字にしたもの) と英単語 (`dictionaries/english-words.txt`) を 1 語ずつ打って確定し、main と見え方が変わった語を Summary に一覧にします。
+変わった語が間違いとは限らない (直したかった語は変わって当然) ので失敗にはせず、意図しない語が変わっていないかを人が確かめるための参考にします。
+辞書から消した語・足した語も比べられるように、変えたあとは変える前の一覧も渡して、その語も判定します (チェックでは main の側にも Pull Request の一覧を渡します)。
+Summary には 200 語まで出し、全件はログと、成果物 `judged-words` の `changes.tsv` に出します。手元では次のように比べられます。
+
+```
+dotnet run --project src/Meltype.Core.Tests -c Release -- --judge-corpus before.tsv              # 変える前
+dotnet run --project src/Meltype.Core.Tests -c Release -- --judge-corpus after.tsv before.tsv    # 変えたあと (変える前の語も判定する)
+node .github/bot/pr-checks.mjs impact before.tsv after.tsv changes.tsv
+```
 
 <br>
 

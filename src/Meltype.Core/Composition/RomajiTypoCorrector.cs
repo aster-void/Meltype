@@ -83,13 +83,13 @@ public sealed class RomajiTypoCorrector
                 if (word == "いい") foreach (var ending in (string[])["よく", "よかっ", "よけれ"]) forms.Add(ending);
                 break;
             case "vk":
-                if (word.EndsWith("くる")) foreach (var form in (string[])["き", "こ", "く", "くれ"]) forms.Add(word[..^2] + form);
+                if (word.EndsWith("くる", StringComparison.Ordinal)) foreach (var form in (string[])["き", "こ", "く", "くれ"]) forms.Add(word[..^2] + form);
                 break;
             case "vs":
-                if (word.EndsWith("する")) foreach (var form in (string[])["し", "さ", "せ", "すれ", "しろ"]) forms.Add(word[..^2] + form);
+                if (word.EndsWith("する", StringComparison.Ordinal)) foreach (var form in (string[])["し", "さ", "せ", "すれ", "しろ"]) forms.Add(word[..^2] + form);
                 break;
             default:
-                if (!kind.StartsWith("v5") || !Rows.TryGetValue(word[^1], out var row)) break;
+                if (!kind.StartsWith("v5", StringComparison.Ordinal) || !Rows.TryGetValue(word[^1], out var row)) break;
                 foreach (var kana in row) forms.Add(stem + kana);
                 // 音便 (かい-た、およい-だ、かっ-た、よん-だ、いっ-た)
                 var onbin = kind switch

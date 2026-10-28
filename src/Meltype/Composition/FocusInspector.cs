@@ -355,7 +355,7 @@ public sealed class FocusInspector : IDisposable
 
         // 変換中に入力先がパスワード欄・入力欄でない所に変わったら、変換中の内容を捨てさせる (移った先に入らないように)。
         // UI Automation で調べられなかっただけ (確認できない・フォーカスなし) のときは捨てない。
-        if (sequence == Interlocked.Read(ref _focusSequence) && (info.IsPassword || !info.IsTextInput && !info.Description.StartsWith("確認できない") && info.Description != "フォーカスなし"))
+        if (sequence == Interlocked.Read(ref _focusSequence) && (info.IsPassword || !info.IsTextInput && !info.Description.StartsWith("確認できない", StringComparison.Ordinal) && info.Description != "フォーカスなし"))
         {
             CaptureLost?.Invoke(info.IsPassword ? "パスワード欄にフォーカスが移った" : "入力欄でない所にフォーカスが移った");
         }

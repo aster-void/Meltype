@@ -9,6 +9,7 @@ namespace Meltype.Composition;
 /// 形式は 1 行に「読み 候補 候補 …」。# 以降はコメント。
 /// 組み込みの dictionaries/candidates.txt と %LOCALAPPDATA%\Meltype\dictionaries\candidates.txt を読む。
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "日本語入力の辞書を表す既存の公開名。コレクション型を表すものではない。")]
 public sealed class CandidateDictionary
 {
     private readonly Dictionary<string, string[]> _entries = new(StringComparer.Ordinal);
@@ -107,7 +108,7 @@ public sealed class CandidateDictionary
     /// <summary>絵文字・顔文字の候補 (手で書いた emoji.txt の順 → CLDR の順)。</summary>
     public IReadOnlyList<string> LookupEmoji(string reading) => Lookup(_emoji, reading);
 
-    private static IReadOnlyList<string> Lookup(Dictionary<string, string[]> entries, string reading)
+    private static List<string> Lookup(Dictionary<string, string[]> entries, string reading)
     {
         for (var length = reading.Length; length >= 1; length--)
         {
