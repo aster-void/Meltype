@@ -15,14 +15,16 @@ internal static class TipIndicatorTests
     {
         var settings = new Settings();
         foreach (var keyboard in new[] { false, true })
-        foreach (var tsf in new[] { false, true })
         {
-            settings.ShowModeIndicator = keyboard;
-            settings.ShowTsfModeIndicator = tsf;
-            settings.Mode = InputMode.Keyboard;
-            Assert.Equal(keyboard, UI.TrayApplicationContext.ShouldShowModeIndicator(settings), "キーボード方式は既存設定だけを見る");
-            settings.Mode = InputMode.Tsf;
-            Assert.Equal(tsf, UI.TrayApplicationContext.ShouldShowModeIndicator(settings), "IME 方式は新しい設定だけを見る");
+            foreach (var tsf in new[] { false, true })
+            {
+                settings.ShowModeIndicator = keyboard;
+                settings.ShowTsfModeIndicator = tsf;
+                settings.Mode = InputMode.Keyboard;
+                Assert.Equal(keyboard, UI.TrayApplicationContext.ShouldShowModeIndicator(settings), "キーボード方式は既存設定だけを見る");
+                settings.Mode = InputMode.Tsf;
+
+            }
         }
         settings.Enabled = false;
         Assert.True(!UI.TrayApplicationContext.ShouldShowModeIndicator(settings), "一時停止中は表示しない");
