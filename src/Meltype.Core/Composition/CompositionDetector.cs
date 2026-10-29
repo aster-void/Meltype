@@ -483,15 +483,12 @@ public sealed partial class CompositionDetector
     }
 
     /// <summary>
-    /// 版の番号 (1.4.1・1.10.0) の後ろの、- から始まるプレリリースの名前 (-pre.1・-rc1・-beta) の終わり。無ければ -1。
-    /// 名前は . で区切った「英字 + 数字」の並び。数字の後ろの英字 (-pre.1|wo) からは続けない。
-    /// 英字だけの名前は、2 文字目より後ろの、助詞と後ろの語が最後まで読める所で切る (-pre|wodashita。alp|ha は助詞だけなので切らない)。
-    /// 助詞の後ろがよく使う語で始まる所 (alp|ha|wotameshita でなく alpha|wo|tameshita) を先に、無ければ最初の所で切る。
+    /// 版の番号 (1.4.1・1.10.0) の後ろの、- から始まるプレリリースの名前 (-pre・-beta.2・-rc1) の終わり。無ければ -1。
+    /// 名前は PrereleaseNames の語 + 数字 + (. 数字) の並び。後ろの英字 (-pre|wodashita) からは日本語。
     /// </summary>
-    private int VersionSuffixEnd(IReadOnlyList<CompositionUnit> units, int start, string pending)
+    private static int VersionSuffixEnd(IReadOnlyList<CompositionUnit> units, int start, string pending)
     {
         static bool IsDigits(string raw) => raw.Length > 0 && raw.All(char.IsAsciiDigit);
-        static bool IsLetters(string raw) => raw.Length > 0 && raw.All(char.IsAsciiLetter);
         var n = units.Count;
         if (units[start].Raw != "-") return -1;
         // - の前が x.y.z の 3 つの数字 (1.5-desu・3.14-kai は日本語のまま)
@@ -502,35 +499,26 @@ public sealed partial class CompositionDetector
             while (before > 0 && IsDigits(units[before - 1].Raw)) before--;
             if (before == digits || part < 2 && (before == 0 || units[--before].Raw != ".")) return -1;
         }
-        var end = start + 1;
-        while (true)
+        // 一番長く一致する名前 (pre|view でなく preview) の終わり。最後まで打っている途中 (-pr) は、名前の頭なら入力の最後まで
+        var end = -1;
+        var name = "";
+        var k = start + 1;
+        for (; k < n && PrereleaseNames.Any(p => p.StartsWith(name + units[k].Raw.ToLowerInvariant(), StringComparison.Ordinal)); k++)
         {
-            var from = end;
-            while (end < n && IsLetters(units[end].Raw)) end++;
-            var letters = end;
-            while (end < n && IsDigits(units[end].Raw)) end++;
-            if (end == from) break;
-            if (letters == end)
-            {
-                var split = -1;
-                for (var k = from + 1; k < end; k++)
-                {
-                    var rest = (Raw(units, k, end) + (end == n ? pending : "")).ToLowerInvariant();
-                    var name = Raw(units, from, k);
-                    if (name.Length < 2 || TrailingParticles.FirstOrDefault(p => rest.StartsWith(p, StringComparison.Ordinal)) is not { } particle ||
-                        rest.Length == particle.Length || _romaji.Analyze(rest) is not { IsValid: true, Partial: "" or "n" }) continue;
-                    var kana = _romaji.ConvertLenient(rest[particle.Length..], final: true);
-                    for (var length = 2; length <= kana.Length; length++)
-                        if (RomajiTypoCorrector.CommonWordCost(kana.AsSpan(0, length)) is not null) return k;
-                    if (split < 0) split = k;
-                }
-                if (split >= 0) return split;
-            }
-            if (end + 1 >= n || units[end].Raw != "." || !IsLetters(units[end + 1].Raw) && !IsDigits(units[end + 1].Raw)) break;
-            end++;
+            name += units[k].Raw.ToLowerInvariant();
+            if (PrereleaseNames.Contains(name)) end = k + 1;
         }
-        return end > start + 1 || end == n && pending.Length > 0 ? end : -1;
+        if (k == n && name.Length + pending.Length > 0 && PrereleaseNames.Any(p => p.StartsWith(name + pending.ToLowerInvariant(), StringComparison.Ordinal))) return n;
+        if (end < 0) return -1;
+        while (end < n && IsDigits(units[end].Raw)) end++;
+        while (end + 1 < n && units[end].Raw == "." && IsDigits(units[end + 1].Raw))
+            for (end++; end < n && IsDigits(units[end].Raw); end++) { }
+        return end;
     }
+
+    private static readonly string[] PrereleaseNames =
+        ["alpha", "beta", "canary", "dev", "edge", "experimental", "final", "hotfix", "insiders", "lts", "next", "nightly", "pre", "preview", "rc", "release",
+         "snapshot", "stable", "test", "twilight", "unstable"];
 
     /// <summary>英語の短縮形 (don't, it's, I'm, you're, we'll, can't)。' の前が英単語か n't の形。</summary>
     private bool IsContraction(string span)
