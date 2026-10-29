@@ -336,7 +336,8 @@ public sealed partial class CompositionDetector
         while (dot < units.Count && units[dot].Raw.Length > 0 && units[dot].Raw.All(char.IsAsciiLetter)) dot++;
         if (dot >= units.Count || units[dot].Raw != ".") return -1;
         var stem = Raw(units, start, dot);
-        if (IsKnownEnglishWord(stem)) return -1;
+        // 小文字の、日本語の語と同じ綴りの固有名詞 (wakatte) は、区間分けでかなになるので、ここでドメインとしてまとめる (wakatte.tv)
+        if (IsKnownEnglishWord(stem) && !IsLowercaseJapaneseProperNoun(stem)) return -1;
         var suffix = DotSuffixEnd(units, dot + 1, pending);
         if (suffix <= dot + 1) return -1;
         // 1.5 のような小数は拡張子ではない (soudesu.1.5 → そうです。1.5)。cpp のような英字の拡張子だけをまとめる。

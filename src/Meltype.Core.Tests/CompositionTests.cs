@@ -3383,6 +3383,8 @@ internal static class CompositionTests
             // 拡張子・ドメインの後ろの助詞からは日本語
             ["MeltypeTip.dllwokesu"] = "MeltypeTip.dllをけす", ["setup.exewojikkou"] = "setup.exeをじっこう", ["github.comnipush"] = "github.comにpush",
             ["tetr.iode"] = "tetr.ioで", ["google.comdekensaku"] = "google.comでけんさく",
+            // 日本語の語と同じ綴りの固有名詞 (Wakatte) のドメインは、小文字で打っても英字
+            ["wakatte.tv"] = "wakatte.tv", ["wakatte.tvdemiru"] = "wakatte.tvでみる", ["wakatte."] = "わかって。",
             // 読めない拡張子の後ろの、(助詞 +) 3 音以上の日本語の語からは日本語
             [".envfairu"] = ".envふぁいる", [".zshrcnosettei"] = ".zshrcのせってい", [".gitignorefairu"] = ".gitignoreふぁいる", ["MeltypeTip.dllfairu"] = "MeltypeTip.dllふぁいる",
         };
