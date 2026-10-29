@@ -3400,6 +3400,9 @@ internal static class CompositionTests
             // 版の番号のプレリリースの名前は英字。x.y.z でない数字の後ろの - は のばす音
             ["ver1.4.1-pre.1"] = "ver1.4.1-pre.1", ["v1.10.0-rc.1"] = "v1.10.0-rc.1", ["1.4.1-beta"] = "1.4.1-beta",
             ["ver1.4.1-pre.1wodashita"] = "ver1.4.1-pre.1をだした", ["1.5-desu"] = "1.5ーです",
+            // 英字だけの名前の後ろの、助詞から始まる日本語
+            ["ver1.4.1-prewodashita"] = "ver1.4.1-preをだした", ["v1.2.3-alphawotameshita"] = "v1.2.3-alphaをためした", ["v1.2.3-rcnitsuite"] = "v1.2.3-rcについて",
+            ["v1.2.3-alpha"] = "v1.2.3-alpha", ["v1.2.3-alpha.2wodashita"] = "v1.2.3-alpha.2をだした", ["v1.2.3-demo"] = "v1.2.3-demo",
             // 読めない拡張子の後ろの、(助詞 +) 3 音以上の日本語の語からは日本語
             [".envfairu"] = ".envふぁいる", [".zshrcnosettei"] = ".zshrcのせってい", [".gitignorefairu"] = ".gitignoreふぁいる", ["MeltypeTip.dllfairu"] = "MeltypeTip.dllふぁいる",
             [".jsonwoyomu"] = ".jsonをよむ",
