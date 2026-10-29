@@ -1514,6 +1514,31 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void ReadableEnglishWords_DoNotSwallowJapanese()
+    {
+        // 英単語と同じ綴りの日本語 (mite = 見て、kite = 来て) が、英単語の辞書・スペルチェッカーの語より日本語として読まれる
+        Detector.SpellChecker = Detection.BuiltInWordChecker.Shared;
+        try
+        {
+            var cases = new Dictionary<string, string>
+            {
+                ["mitemite"] = "みてみて", ["mitekudasai"] = "みてください", ["kitekudasai"] = "きてください", ["kitemo"] = "きても", ["kitekara"] = "きてから",
+                ["here"] = "here", ["hero"] = "hero",
+            };
+            foreach (var (typed, expected) in cases)
+            {
+                var k = new Keyboard();
+                k.Type(typed + "\n");
+                Assert.Equal(expected, k.Host.Document, $"「{typed}」");
+            }
+        }
+        finally
+        {
+            Detector.SpellChecker = null;
+        }
+    }
+
+    [Test]
     public static void Context_FromTextBeforeCaret()
     {
         // 直前に確定済みの文字 (入力欄から読む) が英語なら英語、日本語なら日本語。
