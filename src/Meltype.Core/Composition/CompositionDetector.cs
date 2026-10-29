@@ -399,6 +399,18 @@ public sealed partial class CompositionDetector
                 (afterParticle.Length == 0 || Readable(afterParticle) || stem.Length >= 3 && IsKnownEnglishWord(afterParticle))) return k;
             if (!readable && afterParticle.Length > 0 && Readable(rest) && !Readable(stem)) return k;
         }
+        // 読めない語の後ろに、(助詞 +) 3 音以上の日本語の語から始まる読める語が続く (.env|fairu、.zshrc|nosettei)。短い語 (.js|on のおん) では分けない
+        for (var k = start + 1; !readable && k < end; k++)
+        {
+            var stem = Raw(units, start, k).ToLowerInvariant();
+            if (Readable(stem)) continue;
+            var rest = (Raw(units, k, end) + (end == n ? pending : "")).ToLowerInvariant();
+            if (!Readable(rest)) continue;
+            var particle = TrailingParticles.FirstOrDefault(p => rest.StartsWith(p, StringComparison.Ordinal)) ?? "";
+            var kana = _romaji.ConvertLenient(rest[particle.Length..], final: true);
+            for (var length = 3; length <= kana.Length; length++)
+                if (RomajiTypoCorrector.CommonWordCost(kana.AsSpan(0, length)) is not null || CommonReadings.Katakana.Contains(kana.AsSpan(0, length))) return k;
+        }
         // 最後までローマ字として読める語 (Meltype.desu) は、ふつうに判定する
         return readable ? -1 : end;
     }

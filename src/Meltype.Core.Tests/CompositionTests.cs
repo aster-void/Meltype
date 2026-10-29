@@ -3356,6 +3356,8 @@ internal static class CompositionTests
             // 拡張子・ドメインの後ろの助詞からは日本語
             ["MeltypeTip.dllwokesu"] = "MeltypeTip.dllをけす", ["setup.exewojikkou"] = "setup.exeをじっこう", ["github.comnipush"] = "github.comにpush",
             ["tetr.iode"] = "tetr.ioで", ["google.comdekensaku"] = "google.comでけんさく",
+            // 読めない拡張子の後ろの、(助詞 +) 3 音以上の日本語の語からは日本語
+            [".envfairu"] = ".envふぁいる", [".zshrcnosettei"] = ".zshrcのせってい", [".gitignorefairu"] = ".gitignoreふぁいる", ["MeltypeTip.dllfairu"] = "MeltypeTip.dllふぁいる",
         };
         foreach (var (typed, expected) in cases)
         {
