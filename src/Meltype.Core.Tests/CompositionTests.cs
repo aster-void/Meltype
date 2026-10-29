@@ -576,6 +576,16 @@ internal static class CompositionTests
         k.Press(VirtualKeys.Space);
         Assert.Equal("身近", k.Host.View!.Candidates[0], string.Join(" ", k.Host.View!.Candidates));
         Assert.True(k.Host.View!.Candidates.Contains("midiか"), string.Join(" ", k.Host.View!.Candidates));
+
+        // みぢか に続く形 (midi|かくにん・midi|かも) も、かなで見えたまま Space で英単語で区切った形を選べる
+        foreach (var (typed, kana, split) in new[] { ("midikakuninn", "みぢかくにん", "midiかくにん"), ("midikamo", "みぢかも", "midiかも") })
+        {
+            var j = new Keyboard();
+            j.Type(typed);
+            Assert.Equal(kana, j.Showing);
+            j.Press(VirtualKeys.Space);
+            Assert.True(j.Host.View!.Candidates.Contains(split), $"「{typed}」: " + string.Join(" ", j.Host.View!.Candidates));
+        }
     }
 
     [Test]
