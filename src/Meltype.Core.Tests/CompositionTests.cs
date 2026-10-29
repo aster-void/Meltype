@@ -1522,9 +1522,16 @@ internal static class CompositionTests
         {
             var cases = new Dictionary<string, string>
             {
-                ["mitemite"] = "みてみて", ["mitekudasai"] = "みてください", ["kitekudasai"] = "きてください", ["kitemo"] = "きても", ["kitekara"] = "きてから",
-                ["mitemiru"] = "みてみる", ["kitekure"] = "きてくれ",
-                ["here"] = "here", ["hero"] = "hero", ["I fly a kite"] = "I fly a kite",
+                ["mitemite"] = "みてみて",
+                ["mitekudasai"] = "みてください",
+                ["kitekudasai"] = "きてください",
+                ["kitemo"] = "きても",
+                ["kitekara"] = "きてから",
+                ["mitemiru"] = "みてみる",
+                ["kitekure"] = "きてくれ",
+                ["here"] = "here",
+                ["hero"] = "hero",
+                ["I fly a kite"] = "I fly a kite",
             };
             foreach (var (typed, expected) in cases)
             {
@@ -3396,15 +3403,27 @@ internal static class CompositionTests
             ["MeltypeTip.dllwokesu"] = "MeltypeTip.dllをけす", ["setup.exewojikkou"] = "setup.exeをじっこう", ["github.comnipush"] = "github.comにpush",
             ["tetr.iode"] = "tetr.ioで", ["google.comdekensaku"] = "google.comでけんさく",
             // 日本語の語と同じ綴りの固有名詞 (Wakatte) のドメインは、小文字で打っても英字
-            ["wakatte.tv"] = "wakatte.tv", ["wakatte.tvdemiru"] = "wakatte.tvでみる", ["wakatte."] = "わかって。",
+            ["wakatte.tv"] = "wakatte.tv",
+            ["wakatte.tvdemiru"] = "wakatte.tvでみる",
+            ["wakatte."] = "わかって。",
             // 版の番号のプレリリースの名前は英字。x.y.z でない数字の後ろの - は のばす音
-            ["ver1.4.1-pre.1"] = "ver1.4.1-pre.1", ["v1.10.0-rc.1"] = "v1.10.0-rc.1", ["1.4.1-beta"] = "1.4.1-beta",
-            ["ver1.4.1-pre.1wodashita"] = "ver1.4.1-pre.1をだした", ["1.5-desu"] = "1.5ーです",
+            ["ver1.4.1-pre.1"] = "ver1.4.1-pre.1",
+            ["v1.10.0-rc.1"] = "v1.10.0-rc.1",
+            ["1.4.1-beta"] = "1.4.1-beta",
+            ["ver1.4.1-pre.1wodashita"] = "ver1.4.1-pre.1をだした",
+            ["1.5-desu"] = "1.5ーです",
             // 名前の後ろの日本語。決まった名前でない語 (desu) は のばす音 + 日本語
-            ["ver1.4.1-prewodashita"] = "ver1.4.1-preをだした", ["v1.2.3-alphawotameshita"] = "v1.2.3-alphaをためした", ["v1.2.3-rcnitsuite"] = "v1.2.3-rcについて",
-            ["v1.2.3-alpha.2wodashita"] = "v1.2.3-alpha.2をだした", ["v1.2.3-preview"] = "v1.2.3-preview", ["v1.2.3-desu"] = "v1.2.3ーです",
+            ["ver1.4.1-prewodashita"] = "ver1.4.1-preをだした",
+            ["v1.2.3-alphawotameshita"] = "v1.2.3-alphaをためした",
+            ["v1.2.3-rcnitsuite"] = "v1.2.3-rcについて",
+            ["v1.2.3-alpha.2wodashita"] = "v1.2.3-alpha.2をだした",
+            ["v1.2.3-preview"] = "v1.2.3-preview",
+            ["v1.2.3-desu"] = "v1.2.3ーです",
             // 読めない拡張子の後ろの、(助詞 +) 3 音以上の日本語の語からは日本語
-            [".envfairu"] = ".envふぁいる", [".zshrcnosettei"] = ".zshrcのせってい", [".gitignorefairu"] = ".gitignoreふぁいる", ["MeltypeTip.dllfairu"] = "MeltypeTip.dllふぁいる",
+            [".envfairu"] = ".envふぁいる",
+            [".zshrcnosettei"] = ".zshrcのせってい",
+            [".gitignorefairu"] = ".gitignoreふぁいる",
+            ["MeltypeTip.dllfairu"] = "MeltypeTip.dllふぁいる",
             [".jsonwoyomu"] = ".jsonをよむ",
         };
         foreach (var (typed, expected) in cases)
