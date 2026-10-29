@@ -24,6 +24,19 @@ public static class ProjectInfo
     /// <summary>公開した版 (1.0.0 以降) か。それまではリポジトリが非公開なので、GitHub で報告する道は出さない。</summary>
     public static bool IsPublicRelease(string version) => Version.TryParse(version, out var parsed) && parsed.Major >= 1;
 
+    /// <summary>その版のリリースのページ (リリースノート)。</summary>
+    public static string ReleaseUrl(string version) => $"{SourceUrl}/releases/tag/v{Uri.EscapeDataString(version)}";
+
+    /// <summary>すべてのリリースの一覧 (過去のリリースノート)。</summary>
+    public const string ReleasesUrl = SourceUrl + "/releases";
+
+    /// <summary>
+    /// 更新したあとの初めての起動で、リリースノートを見せるか (issue #1207)。最後に見せた版と今の版が違えば見せる。
+    /// 初めて起動したとき (新しく入れたとき) は、更新ではないので見せない。
+    /// </summary>
+    public static bool ShouldShowReleaseNotes(string? shownVersion, string currentVersion, bool firstRun) =>
+        !firstRun && currentVersion != "?" && shownVersion != currentVersion;
+
     /// <summary>不具合報告のフォーム (ReportForm) があるか。無ければ GitHub の Issue の画面で報告してもらう。</summary>
     public static bool HasReportForm => ReportForm.Length > 0;
 
@@ -51,7 +64,8 @@ public static class ProjectInfo
 
     /// <summary>
     /// 自分で直した誤判定を、「変換・判定の間違い」のひな形 (2-misdetection.yml) に入れた状態で開く URL (issue #284)。
-    /// 欄の id (kind・typed・actual・expected・key・context) は、ひな形と合わせる。
+    /// 欄の id (kind・typed・actual・expected・key・zenzai・context) は、ひな形と合わせる。
+    /// Zenzai の欄は、直したときの「Zenzai を使う」の設定 (Correction.Zenzai) で入れる。分からなければ空のまま (issue #1197)。
     /// </summary>
     public static string MisdetectionReportUrl(Composition.Correction correction, string os, string version, string environment) =>
         GitHubReportUrl("2-misdetection.yml", os, version, environment) +
@@ -61,6 +75,7 @@ public static class ProjectInfo
         $"&actual={Uri.EscapeDataString(correction.Shown)}" +
         $"&expected={Uri.EscapeDataString(correction.Corrected)}" +
         $"&key={Uri.EscapeDataString(correction.LastKey)}" +
+        (correction.Zenzai is { } on ? $"&zenzai={Uri.EscapeDataString(on ? "使っている" : "使っていない")}" : "") +
         $"&context={Uri.EscapeDataString(correction.Before)}";
 
     /// <summary>Mac 版・Linux 版の実行環境 (不具合報告に入れる。入力した文字は入れない)。</summary>

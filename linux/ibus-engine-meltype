@@ -9,46 +9,38 @@
 #   ibus-engine-meltype --version  版だけを出して終わる
 import json
 import os
-import re
 import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 
 
-def _version_from_xml():
-    path = os.path.join(HERE, "meltype.xml")
-    try:
-        with open(path, encoding="utf-8") as f:
-            match = re.search(r"<version>([^<]+)</version>", f.read())
-        return match.group(1).strip() if match else None
-    except OSError:
-        return None
-
-
 def _version_from_native():
     so = os.path.join(HERE, "libMeltypeNative.so")
-    if not os.path.isfile(so):
-        return None
     import ctypes
 
+    lib = ctypes.CDLL(so)
+    lib.meltype_version.restype = ctypes.c_void_p
+    lib.meltype_free.argtypes = [ctypes.c_void_p]
+    pointer = lib.meltype_version()
+    if not pointer:
+        raise ValueError("meltype_version が NULL を返しました")
     try:
-        lib = ctypes.CDLL(so)
-        lib.meltype_version.restype = ctypes.c_void_p
-        lib.meltype_free.argtypes = [ctypes.c_void_p]
-        pointer = lib.meltype_version()
-        if not pointer:
-            return None
-        try:
-            return ctypes.string_at(pointer).decode("utf-8")
-        finally:
-            lib.meltype_free(pointer)
-    except Exception:
-        return None
+        version = ctypes.string_at(pointer).decode("utf-8")
+        if not version.strip():
+            raise ValueError("meltype_version が空の版を返しました")
+        return version
+    finally:
+        lib.meltype_free(pointer)
 
 
 if "--version" in sys.argv[1:]:
-    print(f"Meltype {_version_from_native() or _version_from_xml() or '?'}")
+    try:
+        version = _version_from_native()
+    except (OSError, AttributeError, ValueError) as error:
+        print(f"Meltype: 本体の版を取得できません: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    print(f"Meltype {version}")
     raise SystemExit(0)
 
 import ctypes

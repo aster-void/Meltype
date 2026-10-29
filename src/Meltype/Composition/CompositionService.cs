@@ -30,32 +30,10 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     private readonly MozcConverter _mozc = new(Path.Combine(AppContext.BaseDirectory, "mozc", "meltype_mozc_helper.exe"), Path.Combine(Config.AppPaths.DataDirectory, "mozc"));
     private HybridConverter _hybrid = null!;
 
-    // Zenzai (llama-server + zenz の GGUF)。設定で ON のときだけ、指定の場所が変わるたびに作り直す
-    private ZenzaiConverter? _zenzai;
-    private string _zenzaiKey = "";
-    private ZenzaiConverter? CurrentZenzai(CompositionOptions options)
-    {
-        var server = options.UseZenzai() ? options.ZenzaiServerPath().Trim() : "";
-        var model = options.UseZenzai() ? options.ZenzaiModelPath().Trim() : "";
-        if (server.Length == 0 || model.Length == 0)
-        {
-            // OFF にした・場所を空にしたら、llama-server を止める (メモリと CPU を使い続けないように)
-            _zenzai?.Dispose();
-            _zenzai = null;
-            _zenzaiKey = "";
-            return null;
-        }
-        var key = server + "|" + model;
-        if (key != _zenzaiKey)
-        {
-            _zenzai?.Dispose();
-            _zenzai = new ZenzaiConverter(server, model);
-            _zenzaiKey = key;
-            if (_zenzai.IsInstalled) _zenzai.WarmUp();
-        }
-        return _zenzai;
-    }
-    private readonly IME.Imm32ImeController _imm32 = new();
+    // Zenzai (llama-server + zenz の GGUF)。設定で ON のときだけ、指定の場所が変わるたびに作り直す (持ち主は ZenzaiHolder)
+    private readonly ZenzaiHolder _zenzai = new();
+    private ZenzaiConverter? CurrentZenzai(CompositionOptions options) =>
+        options.UseZenzai() ? _zenzai.Get(options.ZenzaiServerPath(), options.ZenzaiModelPath()) : _zenzai.Get("", "");
     private readonly System.Windows.Forms.Timer _tick = new() { Interval = 100 };
     private int _pumpScheduled;
 
@@ -101,7 +79,10 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             RomajiTypos = options.RomajiTypos ?? RomajiTypoCorrector.Load(detector.Romaji),
             CorrectTypos = options.CorrectTypos,
             SlashAsMiddleDot = options.SlashAsMiddleDot,
+            ZSymbols = options.ZSymbols,
             SpaceAroundEnglish = options.SpaceAroundEnglish,
+            SpaceAroundNumbers = options.SpaceAroundNumbers,
+            NumberKeysSelectCandidates = options.NumberKeysSelectCandidates,
             ShiftSpaceHalfWidth = options.ShiftSpaceHalfWidth,
             EnterCommitsAsShown = options.EnterCommitsAsShown,
             AlphanumericKeyStartsAsTyped = options.AlphanumericKeyStartsAsTyped,
@@ -134,10 +115,11 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         };
         Phrases = resolved.Predictor?.Phrases;
         TranslationHistory = resolved.TranslationHistory;
-        _hybrid = new HybridConverter(options.Engine, _mozc, _converter, reading => _windowsCandidates.Get(reading), () => CurrentZenzai(options));
+        _hybrid = new HybridConverter(options.Engine, _mozc, _converter, reading => _windowsCandidates.Get(reading), () => CurrentZenzai(options), _zenzai.Failed);
         _resolved = resolved;
         Controller = new CompositionController(Gate, detector, _hybrid, this, resolved);
-        Controller.Corrected += Corrections.Add;
+        // 直したときの「Zenzai を使う」も覚えておく (報告を開くまでに設定を変えても、直したときの設定で報告する。issue #1197)
+        Controller.Corrected += correction => Corrections.Add(correction with { Zenzai = options.UseZenzai() });
         if (options.Engine() != Config.ConversionEngine.System && _mozc.IsInstalled) _mozc.WarmUp();
         _showIndicator = options.ModeIndicator;
         _placement = options.Placement;
@@ -486,9 +468,9 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         {
             if (!InputAllowed()) return;
             if (IME.ImeTarget.FromForeground() is not { } target) return;
-            var state = _imm32.GetState(target);
+            var state = IME.Imm32ImeController.GetState(target);
             if (state.Mode != IME.ImeMode.Open) return;
-            var closed = _imm32.TrySetOpen(target, false, null, 150);
+            var closed = IME.Imm32ImeController.TrySetOpen(target, false, null, 150);
             Diagnostics.Log.Warn($"確定時に Microsoft IME が ON になっていました ({state}) → {(closed ? "OFF にしてから入力します" : "OFF にできませんでした")}。");
         }
         catch (Exception ex)
@@ -822,7 +804,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
 
     private static bool IsShellSearchWindow(IntPtr hwnd)
     {
-        Native.GetWindowThreadProcessId(hwnd, out var processId);
+        if (Native.GetWindowThreadProcessId(hwnd, out var processId) == 0) return false;
         try
         {
             using var process = System.Diagnostics.Process.GetProcessById((int)processId);
@@ -925,7 +907,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         _converter.Dispose();
         _windowsCandidates.Dispose();
         _mozc.Dispose();
-        _zenzai?.Dispose();
+        _zenzai.Dispose();
         _window.Dispose();
         _indicator.Dispose();
     }

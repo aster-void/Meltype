@@ -778,6 +778,34 @@ internal static class LanguageLearningTests
         }
     }
 
+    [Test]
+    public static void LearnedEnglishWord_ConvertShowsEngineCandidates()
+    {
+        // #1137: go を英字で確定したあと、go + 変換キーの候補が ご ゴ ｺﾞ go Go GO だけで、語 碁 後 が出ない。
+        var memory = new LanguageMemory(null);
+        CompositionTests.Detector.Memory = memory;
+        try
+        {
+            var k = new CompositionTests.Keyboard(languages: memory);
+            k.Type("go");
+            k.Press(VirtualKeys.F10);
+            k.Type("\n");
+            Assert.Equal("go", k.Host.Document);
+
+            k = new CompositionTests.Keyboard(languages: memory, moreCandidates: reading => reading == "ご" ? ["語", "碁", "後"] : []);
+            k.Type("go");
+            Assert.Equal("go", k.Showing, "覚えたとおり英字");
+            k.Press(VirtualKeys.Convert);
+            var candidates = k.Host.View!.Candidates.ToList();
+            Assert.True(candidates.Contains("碁") && candidates.Contains("後"), string.Join(",", candidates));
+            Assert.True(candidates.IndexOf("碁") < candidates.IndexOf("ゴ"), "変換エンジンの候補はかなより前: " + string.Join(",", candidates));
+            Assert.True(candidates.IndexOf("ゴ") < candidates.IndexOf("go"), "英字の候補は日本語の候補の後ろのまま: " + string.Join(",", candidates));
+        }
+        finally
+        {
+            CompositionTests.Detector.Memory = null;
+        }
+    }
 
 
     [Test]
@@ -847,6 +875,62 @@ internal static class LanguageLearningTests
         var candidates = CandidateDictionary.Load(null);
         foreach (var (reading, name) in new[] { ("くらいど", "くらいど！"), ("ことね", "琴音"), ("ことねりんく", "琴音Link"), ("れい", "Ray") })
             Assert.True(candidates.Lookup(reading).Contains(name), reading + ": " + string.Join(" ", candidates.Lookup(reading)));
+    }
+
+    [Test]
+    public static void Issue959_VersionCandidate_CanBeSelectedAndCommitted()
+    {
+        var expected = $"Meltype-{ProjectInfo.CoreVersion}";
+        foreach (var live in new[] { false, true })
+        {
+            foreach (var typed in new[] { "ba-jon", "ba-jonn", "ba-zyonn" })
+            {
+                var k = new CompositionTests.Keyboard(live: live,
+                    moreCandidates: reading => reading == "ばーじょん" ? ["バージョン", "Mozc-test"] : []);
+                k.Type(typed + " ");
+                var view = k.Host.View!;
+                Assert.True(view.Converting, typed + ": 変換中");
+                Assert.True(view.Candidates.Contains(expected), typed + ": " + string.Join(" ", view.Candidates));
+                Assert.Equal(1, view.Candidates.Count(c => c == expected), "版の候補を重複させない");
+                Assert.True(view.Candidates.Contains("バージョン"), "普通のカタカナの候補も残す");
+                Assert.True(view.Candidates.Contains("Mozc-test"), "変換エンジンの版の候補も残す");
+                k.Controller.SelectCandidate(view.Candidates.ToList().IndexOf(expected));
+                k.Press(VirtualKeys.Return);
+                Assert.Equal(expected, k.Host.Document, typed);
+            }
+        }
+    }
+
+    [Test]
+    public static void Issue959_VersionCandidate_LiveConversionCommitsKatakana()
+    {
+        // ライブ変換では、カタカナの「バージョン」を版の候補より前に出し、そのまま確定しても版にしない (Meltype の版を打ちたいことはまれ)
+        var version = $"Meltype-{ProjectInfo.CoreVersion}";
+        foreach (var typed in new[] { "ba-jon", "ba-jonn", "ba-zyonn" })
+        {
+            var k = new CompositionTests.Keyboard(live: true,
+                moreCandidates: reading => reading == "ばーじょん" ? ["バージョン", "Mozc-test"] : []);
+            k.Type(typed + " ");
+            var candidates = k.Host.View!.Candidates.ToList();
+            Assert.True(candidates.IndexOf("バージョン") is >= 0 and var katakana && katakana < candidates.IndexOf(version), typed + ": " + string.Join(" ", candidates));
+            k.Press(VirtualKeys.Return);
+            Assert.True(k.Host.Document != version, typed + ": " + k.Host.Document);
+        }
+    }
+
+    [Test]
+    public static void Issue959_VersionCandidate_DoesNotChangeOtherInput()
+    {
+        var expected = $"Meltype-{ProjectInfo.CoreVersion}";
+        foreach (var typed in new[] { "version", "ba-jonappu", "ba-" })
+        {
+            var k = new CompositionTests.Keyboard();
+            k.Type(typed + " ");
+            Assert.True(k.Host.View?.Candidates.Contains(expected) != true, typed + ": ほかの読みには版を出さない");
+        }
+        var english = new CompositionTests.Keyboard();
+        english.Type("version\n");
+        Assert.Equal("version", english.Host.Document);
     }
 
     [Test]

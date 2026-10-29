@@ -36,6 +36,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        using var spellChecker = Detection.WindowsSpellChecker.Shared;
         // Meltype.exe --version: 版だけを出して終わる (フック・UI は起動しない)。
         // WinExe はコンソールを持たないので、親ターミナル (cmd / PowerShell) に付け直してから書く。
         if (args.FirstOrDefault() == "--version")
@@ -85,6 +86,7 @@ internal static class Program
         }
         if (restore is not null) RestoreBackup(restore);
         var settings = Settings.Load(AppPaths.ConfigFile);
+        SettingsSchema.Write(AppPaths.DataDirectory);
         if (!File.Exists(AppPaths.ConfigFile))
         {
             try { settings.Save(AppPaths.ConfigFile); } catch { }

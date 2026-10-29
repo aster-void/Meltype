@@ -13,6 +13,24 @@ namespace Meltype.Tests;
 internal static class WindowsTests
 {
     [Test]
+    public static void SpellChecker_DisposeStopsTheWorkerAndClosesItsWaitHandle()
+    {
+        using var checker = new Detection.WindowsSpellChecker();
+        _ = checker.IsAvailable;
+        var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var worker = (Thread?)typeof(Detection.WindowsSpellChecker).GetField("_comThread", flags)!.GetValue(checker);
+        var wake = (AutoResetEvent)typeof(Detection.WindowsSpellChecker).GetField("_wake", flags)!.GetValue(checker)!;
+        checker.Dispose();
+        checker.Dispose();
+        Assert.True(worker is null || !worker.IsAlive, "問い合わせのスレッドが終了している");
+        Assert.True(wake.SafeWaitHandle.IsClosed, "待機ハンドルを閉じる");
+        var disposed = false;
+        try { checker.IsWord("test"); }
+        catch (ObjectDisposedException) { disposed = true; }
+        Assert.True(disposed, "破棄した後に問い合わせを再開しない");
+    }
+
+    [Test]
     public static void Main_RunsOnStaThread()
     {
         // クリップボード・UI は STA でないと動かない。Main の前にメソッドを足して、[STAThread] がそちらに付いていた (v1.2.0 の自己診断で失敗)
@@ -101,7 +119,7 @@ internal static class WindowsTests
         var clauses = ime.ConvertClauses(text, "わたしは");
         Assert.True(clauses is { Count: > 0 }, "長い読みも文節に区切って変換できる");
         Assert.Equal(text, string.Concat(clauses!.Select(c => c.Reading)));
-        Assert.True(string.Concat(clauses.Select(c => c.Text)).Contains("天気"), string.Concat(clauses.Select(c => c.Text)));
+        Assert.True(string.Concat(clauses!.Select(c => c.Text)).Contains("天気"), string.Concat(clauses!.Select(c => c.Text)));
         Assert.True(ime.Convert(text)?.Contains("天気") == true, "全体の変換も");
     }
 
@@ -440,7 +458,7 @@ internal static class WindowsTests
         var columns = controls.OfType<DataGridView>().SelectMany(g => g.Columns.Cast<DataGridViewColumn>()).ToList();
         Assert.Equal(2, columns.OfType<UI.ToggleSwitchColumn>().Count(), "表のスイッチの列");
         Assert.True(!columns.OfType<DataGridViewComboBoxColumn>().Any(c => c.Items.Count == 2 && c.Items.Contains("ON")), "表に ON/OFF だけのプルダウンの列が残っていない");
-        var rules = controls.OfType<DataGridView>().First(g => g.Columns[0].HeaderText.StartsWith("プロセス名"));
+        var rules = controls.OfType<DataGridView>().First(g => g.Columns[0].HeaderText.StartsWith("プロセス名", StringComparison.Ordinal));
         Assert.Equal(false, rules.Rows.Cast<DataGridViewRow>().First(r => Equals(r.Cells[0].Value, "mstsc.exe")).Cells[1].Value, "mstsc.exe は OFF");
         Assert.Equal(true, rules.Rows.Cast<DataGridViewRow>().First(r => Equals(r.Cells[0].Value, "Code.exe")).Cells[1].Value, "Code.exe は ON");
         // 画面の値を設定に戻す (Collect) ときも、スイッチと表の bool がそのまま設定になる
