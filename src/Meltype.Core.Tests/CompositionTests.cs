@@ -3385,6 +3385,9 @@ internal static class CompositionTests
             ["tetr.iode"] = "tetr.ioで", ["google.comdekensaku"] = "google.comでけんさく",
             // 日本語の語と同じ綴りの固有名詞 (Wakatte) のドメインは、小文字で打っても英字
             ["wakatte.tv"] = "wakatte.tv", ["wakatte.tvdemiru"] = "wakatte.tvでみる", ["wakatte."] = "わかって。",
+            // 版の番号のプレリリースの名前は英字。x.y.z でない数字の後ろの - は のばす音
+            ["ver1.4.1-pre.1"] = "ver1.4.1-pre.1", ["v1.10.0-rc.1"] = "v1.10.0-rc.1", ["1.4.1-beta"] = "1.4.1-beta",
+            ["ver1.4.1-pre.1wodashita"] = "ver1.4.1-pre.1をだした", ["1.5-desu"] = "1.5ーです",
             // 読めない拡張子の後ろの、(助詞 +) 3 音以上の日本語の語からは日本語
             [".envfairu"] = ".envふぁいる", [".zshrcnosettei"] = ".zshrcのせってい", [".gitignorefairu"] = ".gitignoreふぁいる", ["MeltypeTip.dllfairu"] = "MeltypeTip.dllふぁいる",
         };

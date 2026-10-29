@@ -482,6 +482,37 @@ public sealed partial class CompositionDetector
         return -1;
     }
 
+    /// <summary>
+    /// 版の番号 (1.4.1・1.10.0) の後ろの、- から始まるプレリリースの名前 (-pre.1・-rc1・-beta) の終わり。無ければ -1。
+    /// 名前は . で区切った「英字 + 数字」の並び。数字の後ろの英字 (-pre.1|wo) からは続けない。
+    /// </summary>
+    private static int VersionSuffixEnd(IReadOnlyList<CompositionUnit> units, int start, string pending)
+    {
+        static bool IsDigits(string raw) => raw.Length > 0 && raw.All(char.IsAsciiDigit);
+        static bool IsLetters(string raw) => raw.Length > 0 && raw.All(char.IsAsciiLetter);
+        var n = units.Count;
+        if (units[start].Raw != "-") return -1;
+        // - の前が x.y.z の 3 つの数字 (1.5-desu・3.14-kai は日本語のまま)
+        var before = start;
+        for (var part = 0; part < 3; part++)
+        {
+            var digits = before;
+            while (before > 0 && IsDigits(units[before - 1].Raw)) before--;
+            if (before == digits || part < 2 && (before == 0 || units[--before].Raw != ".")) return -1;
+        }
+        var end = start + 1;
+        while (true)
+        {
+            var from = end;
+            while (end < n && IsLetters(units[end].Raw)) end++;
+            while (end < n && IsDigits(units[end].Raw)) end++;
+            if (end == from) break;
+            if (end + 1 >= n || units[end].Raw != "." || !IsLetters(units[end + 1].Raw) && !IsDigits(units[end + 1].Raw)) break;
+            end++;
+        }
+        return end > start + 1 || end == n && pending.Length > 0 ? end : -1;
+    }
+
     /// <summary>英語の短縮形 (don't, it's, I'm, you're, we'll, can't)。' の前が英単語か n't の形。</summary>
     private bool IsContraction(string span)
     {
