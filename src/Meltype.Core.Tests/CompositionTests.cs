@@ -688,16 +688,18 @@ internal static class CompositionTests
     public static void Prediction_FromLastClause()
     {
         // 読み全体 (たんいをとる) の続きが無くても、最後の文節 (とる) の続きを出す。選ぶと前の文節は見えているとおりに残す
+        // 前の文節とつながらない候補 (単位をトルコ料理) は出さない。最後の文節の文字 (取る) か読み (とる) で始まる候補だけ
         var phrases = new PhraseHistory(null);
         phrases.Remember("とるこりょうり", "トルコ料理");
+        phrases.Remember("とることができる", "取ることができる");
         var k = new Keyboard(live: true, predictor: new Predictor(phrases, null, null));
         k.Type("tanniwotoru");
         Assert.Equal("単位を取る", k.Showing);
-        Assert.True(k.Host.View!.Predictions?.Contains("トルコ料理") == true, "最後の文節の続き: " + string.Join(",", k.Host.View.Predictions ?? []));
+        Assert.Equal("取ることができる", string.Join(",", k.Host.View!.Predictions ?? []));
         k.Press(VirtualKeys.Tab);
-        Assert.Equal("単位をトルコ料理", k.Showing);
+        Assert.Equal("単位を取ることができる", k.Showing);
         k.Press(VirtualKeys.Return);
-        Assert.Equal("単位をトルコ料理", k.Host.Document);
+        Assert.Equal("単位を取ることができる", k.Host.Document);
 
         // ライブ変換が OFF なら、最後の文節では引かない (打鍵ごとに変換を増やさない)
         var off = new Keyboard(predictor: new Predictor(phrases, null, null));

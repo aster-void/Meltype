@@ -3088,11 +3088,14 @@ public sealed class CompositionController
         }
         if (kana.All(KanaChars.IsHiraganaOrLongMark))
         {
-            foreach (var (before, reading) in PredictionStarts(kana))
+            foreach (var (before, reading, heads) in PredictionStarts(kana))
             {
-                Add(predictor.PredictJapanese(reading), before, reading);
+                // 最後の文節の続きは、その文節の文字か読みで始まる候補だけ (たんいをとる → 単位をトルコ料理 のような、前とつながらない候補を出さない)
+                IEnumerable<string> Connected(IEnumerable<string> words) =>
+                    heads.Length == 0 ? words : words.Where(w => heads.Any(h => w.StartsWith(h, StringComparison.Ordinal)));
+                Add(Connected(predictor.PredictJapanese(reading)), before, reading);
                 // 英字で書く社名・サービス名 (しゃお → Xiaomi)。日本語の予測の後ろに足す
-                if (_options.EnglishNamePredictions()) Add(predictor.PredictEnglishNames(reading), before, reading);
+                if (_options.EnglishNamePredictions()) Add(Connected(predictor.PredictEnglishNames(reading)), before, reading);
             }
         }
         // 長い英単語は、打ち終わるまでローマ字として見えていることがある (decis → でしs)。英字だけを 4 文字以上打っていれば英単語の続きも出す
@@ -3103,11 +3106,12 @@ public sealed class CompositionController
     /// <summary>
     /// 予測変換で続きを探す読み: 読み全体と、最後の文節 (変換エンジンの区切り)。
     /// 読み全体の続きだけだと、前に確定したのと同じ語句を頭から打たないと候補が出ない。
-    /// 最後の文節の続きの候補を選んだときは、前の文節は見えているとおりに残す (たんいをとる → 単位を + トルコ料理)。
+    /// 最後の文節の続きの候補を選んだときは、前の文節は見えているとおりに残す (たんいをとる → 単位を + 取ることができる)。
+    /// Heads は、最後の文節の続きの候補が始まっていないといけない文字 (文節の文字と読み)。読み全体では空
     /// </summary>
-    private List<(string Before, string Reading)> PredictionStarts(string kana)
+    private List<(string Before, string Reading, string[] Heads)> PredictionStarts(string kana)
     {
-        var starts = new List<(string Before, string Reading)> { ("", kana) };
+        var starts = new List<(string Before, string Reading, string[] Heads)> { ("", kana, []) };
         // 文節の区切りはライブ変換の結果を使う (打鍵ごとに変換を増やさない)。ライブ変換が OFF のときと、読みが短いうちは読み全体だけ
         if (!_options.LiveConversion() || kana.Length < LiveConversionMinLength) return starts;
         var clauses = LiveClauses(kana);
@@ -3117,7 +3121,7 @@ public sealed class CompositionController
         // 英語として見せている所があるときなどは、前に残す文字が分からないので読み全体の続きだけにする
         var display = CurrentDisplay(final: false);
         var shown = display.EndsWith(last.Text, StringComparison.Ordinal) ? last.Text : display.EndsWith(last.Reading, StringComparison.Ordinal) ? last.Reading : null;
-        if (shown is not null) starts.Add((display[..^shown.Length], last.Reading));
+        if (shown is not null) starts.Add((display[..^shown.Length], last.Reading, [last.Text, last.Reading]));
         return starts;
     }
 
