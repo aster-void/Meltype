@@ -99,6 +99,9 @@ public sealed partial class CompositionDetector
         public bool IsEnglish => Side is Side.English or Side.Sentence;
     }
 
+    /// <summary>調べる用 (--segments): 区間分けのたびに、最後の状態ごとの一番軽い道と、候補ごとの重み (+) を 1 行ずつ渡す。* が選んだ道。</summary>
+    internal Action<string>? LatticeTrace { get; set; }
+
     private List<CompositionSegment> FindSpansByReading(IReadOnlyList<CompositionUnit> units, string pending, bool? precedingEnglish, bool? followingEnglish,
         DetectionLevel level, bool englishSentence, bool kanaInput, double extraEnglishBias = 0)
     {
@@ -258,6 +261,7 @@ public sealed partial class CompositionDetector
 
         LatticeNode? chosen = null;
         var chosenCost = double.MaxValue;
+        var finals = new List<(double Cost, LatticeState State, LatticeNode Node)>();
         for (var key = 0; key < LatticeState.Count; key++)
         {
             if (best[length, key] is not { } node) continue;
@@ -266,10 +270,23 @@ public sealed partial class CompositionDetector
             if (state.Sokuon) cost += DanglingSokuonCost;
             if (followingEnglish == true && state.Side == Side.Japanese && !state.Particle) cost += SwitchCost;
             if (followingEnglish == false && state.IsEnglish && node.Edge.English) cost += SwitchCost;
+            finals.Add((cost, state, node));
             if (cost < chosenCost)
             {
                 chosen = node;
                 chosenCost = cost;
+            }
+        }
+        if (LatticeTrace is { } trace)
+        {
+            trace($"lattice {text} (level {level}, preceding {precedingEnglish?.ToString() ?? "-"}, following {followingEnglish?.ToString() ?? "-"}, bias {englishBias})");
+            foreach (var (cost, state, node) in finals.OrderBy(f => f.Cost))
+            {
+                var path = new List<string>();
+                for (var at = node; at.Previous is { } previous; at = previous)
+                    path.Add($"{(at.Edge.English ? "EN" : at.Edge.Neutral ? "--" : "JA")}:{text[at.Edge.Start..at.Edge.End]}{(at.Edge.Kana.Length > 0 && at.Edge.Kana != text[at.Edge.Start..at.Edge.End] ? "=" + at.Edge.Kana : "")}+{at.Cost - previous.Cost:0.##}");
+                path.Reverse();
+                trace($"  {(node == chosen ? "*" : " ")} {cost:0.00} {state.Side}{(state.Particle ? " particle" : "")}{(state.Sokuon ? " sokuon" : "")}: {string.Join(" ", path)}");
             }
         }
         var edges = new List<LatticeEdge>();
