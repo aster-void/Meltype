@@ -1523,7 +1523,8 @@ internal static class CompositionTests
             var cases = new Dictionary<string, string>
             {
                 ["mitemite"] = "みてみて", ["mitekudasai"] = "みてください", ["kitekudasai"] = "きてください", ["kitemo"] = "きても", ["kitekara"] = "きてから",
-                ["here"] = "here", ["hero"] = "hero",
+                ["mitemiru"] = "みてみる", ["kitekure"] = "きてくれ",
+                ["here"] = "here", ["hero"] = "hero", ["I fly a kite"] = "I fly a kite",
             };
             foreach (var (typed, expected) in cases)
             {
@@ -1542,12 +1543,23 @@ internal static class CompositionTests
     public static void EnglishWord_StaysBeforeWordStartingWithParticleKana()
     {
         // カタカナ語の読みもある英単語 (java = じゃゔぁ) の後ろで、助詞と同じかなで始まる語 (のこ・でかく) が続いても、英単語のまま
-        foreach (var (typed, expected) in new[] { ("javanoko", "javaのこ"), ("javadekaku", "javaでかく"), ("sodesuka", "そですか"), ("manonaka", "まのなか") })
+        // 2 文字の英単語 (so・ma・in・an) の後ろは日本語のまま
+        foreach (var (typed, expected) in new[]
+        {
+            ("javanoko", "javaのこ"), ("javadekaku", "javaでかく"), ("pythonnokoto", "pythonのこと"),
+            ("sodesuka", "そですか"), ("manonaka", "まのなか"), ("inochi", "いのち"), ("anone", "あのね"),
+        })
         {
             var k = new Keyboard();
             k.Type(typed + "\n");
             Assert.Equal(expected, k.Host.Document, $"「{typed}」");
         }
+        // 打っている途中に javaの から じゃゔぁのこ に変わらない
+        var typing = new Keyboard();
+        typing.Type("javano");
+        Assert.Equal("javaの", typing.Showing);
+        typing.Type("ko");
+        Assert.Equal("javaのこ", typing.Showing);
     }
 
     [Test]
@@ -3390,6 +3402,7 @@ internal static class CompositionTests
             ["ver1.4.1-pre.1wodashita"] = "ver1.4.1-pre.1をだした", ["1.5-desu"] = "1.5ーです",
             // 読めない拡張子の後ろの、(助詞 +) 3 音以上の日本語の語からは日本語
             [".envfairu"] = ".envふぁいる", [".zshrcnosettei"] = ".zshrcのせってい", [".gitignorefairu"] = ".gitignoreふぁいる", ["MeltypeTip.dllfairu"] = "MeltypeTip.dllふぁいる",
+            [".jsonwoyomu"] = ".jsonをよむ",
         };
         foreach (var (typed, expected) in cases)
         {
