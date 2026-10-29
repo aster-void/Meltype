@@ -1539,6 +1539,18 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void EnglishWord_StaysBeforeWordStartingWithParticleKana()
+    {
+        // カタカナ語の読みもある英単語 (java = じゃゔぁ) の後ろで、助詞と同じかなで始まる語 (のこ・でかく) が続いても、英単語のまま
+        foreach (var (typed, expected) in new[] { ("javanoko", "javaのこ"), ("javadekaku", "javaでかく"), ("sodesuka", "そですか"), ("manonaka", "まのなか") })
+        {
+            var k = new Keyboard();
+            k.Type(typed + "\n");
+            Assert.Equal(expected, k.Host.Document, $"「{typed}」");
+        }
+    }
+
+    [Test]
     public static void Context_FromTextBeforeCaret()
     {
         // 直前に確定済みの文字 (入力欄から読む) が英語なら英語、日本語なら日本語。
