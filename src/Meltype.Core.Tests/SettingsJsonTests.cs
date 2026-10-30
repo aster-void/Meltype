@@ -38,8 +38,10 @@ internal static class SettingsJsonTests
             var path = Path.Combine(directory, "config.json");
             var original = new Settings
             {
-                SpaceAroundEnglish = true, InputStyle = InputStyle.Kana,
-                DetectionLevel = DetectionLevel.Manual, Mode = InputMode.Keyboard,
+                SpaceAroundEnglish = true,
+                InputStyle = InputStyle.Kana,
+                DetectionLevel = DetectionLevel.Manual,
+                Mode = InputMode.Keyboard,
             }.Normalize();
             original.Save(path);
             Assert.True(original.ToJson().Contains("\"Keyboard\"") && original.ToJson().Contains("\"Kana\""), "enum の文字列表現を維持する");

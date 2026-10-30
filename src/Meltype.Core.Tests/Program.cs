@@ -37,7 +37,7 @@ internal static class Program
                     foreach (var c in args.ElementAtOrDefault(1) ?? "") text.Append(c);
                     Console.OutputEncoding = new System.Text.UTF8Encoding(false);
                     Console.WriteLine("units: " + string.Join(" ", text.Units.Select(u => $"{u.Raw}={u.Kana}")) + (text.Pending.Length > 0 ? $" +{text.Pending}" : ""));
-                    Console.WriteLine("segments: " + string.Join(" | ", text.Segments(final: true).Select(s => (s.IsEnglish ? "EN:" : "JA:") + s.Raw)));
+                    Console.WriteLine("segments: " + string.Join(" | ", text.Segments().Select(s => (s.IsEnglish ? "EN:" : "JA:") + s.Raw)));
                 }
                 return 0;
             case "--eval-json":

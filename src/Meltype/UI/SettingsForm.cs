@@ -351,6 +351,7 @@ internal sealed class SettingsForm : Form, IMessageFilter
         if (type == typeof(bool))
         {
             var toggle = Toggle();
+            if (property.Name == nameof(Settings.UpdatePrerelease)) toggle.Toggled += (_, _) => ConfirmPrerelease(toggle);
             return new Binding(property, toggle,
                 s => toggle.Checked = (bool)property.GetValue(s)!,
                 s => property.SetValue(s, toggle.Checked));
@@ -804,6 +805,20 @@ internal sealed class SettingsForm : Form, IMessageFilter
     private void LoadFrom(Settings settings)
     {
         foreach (var binding in _bindings) binding.Load(settings);
+    }
+
+    /// <summary>
+    /// 「プレリリース版も自動で更新する」を OFF から ON にしたときだけ確かめる (issue #1206)。キャンセルなら OFF に戻す。
+    /// ON から OFF にするときと、設定を読み込んだとき (利用者の操作でないとき) は何も聞かない。
+    /// </summary>
+    private void ConfirmPrerelease(ToggleSwitch toggle)
+    {
+        if (!toggle.Checked) return;
+        var answer = MessageBox.Show(this,
+            "プレリリース版は、正式版の前に試してもらうための版です。不具合や動作の不安定さが含まれることがあります。\n\n" +
+            "プレリリース版も自動で更新するようにしますか？ (「OK」で有効にします。あとから OFF に戻せます)",
+            "プレリリース版の自動更新", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+        if (answer != DialogResult.OK) toggle.Checked = false;
     }
 
     /// <summary>画面の内容を設定にする。画面に出していない項目は引き継ぎ、編集中の正規化では除外ログ・通知を出さない。</summary>

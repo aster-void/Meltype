@@ -112,7 +112,7 @@ internal static class Checks
         foreach (var line in File.ReadAllLines(input))
         {
             var parts = line.Split('\t');
-            if (parts.Length != 2) continue;
+            if (parts.Length != 2) throw new FormatException($"Expected exactly two tab-separated columns in {input}: {line}");
             var (typed, expected) = (parts[0].Trim(), parts[1].Trim());
             if (typed.Length == 0 || expected.Length == 0) continue;
             if (typed.All(c => c is >= 'ぁ' and <= 'ゖ' or 'ー' or >= 'ァ' and <= 'ヺ'))
@@ -122,7 +122,7 @@ internal static class Checks
                 results.Add(new { typed, expected, kind = "候補", actual = string.Join(" ", list.Take(12)), ok = list.Contains(expected) });
                 continue;
             }
-            var k = new CompositionTests.Keyboard();
+            var k = new CompositionTests.Keyboard(userDictionary: new Meltype.Composition.UserDictionary(null));
             k.Type(new string(typed.Where(c => c is >= ' ' and <= '~').Take(300).ToArray()) + "\n");
             var actual = k.Host.Document;
             var kanji = expected.Any(c => c is >= '㐀' and <= '鿿');
@@ -237,7 +237,7 @@ internal static class Henkan
         // 確かめたいのは、まだ何も覚えていない人の最初の変換)
         var converter = Mozc.Value is { } engine ? new WithoutLearning(engine) : FallbackConverter;
         return new(live: true, converter: converter, moreCandidates: Mozc.Value is { } mozc ? mozc.Candidates : null,
-            userDictionary: new Composition.UserDictionary(null), translations: Translations.Value);
+            userDictionary: new Meltype.Composition.UserDictionary(null), translations: Translations.Value);
     }
 
     /// <summary>変換だけを頼み、覚えさせない変換エンジン (ILearningConverter を持たない)。</summary>

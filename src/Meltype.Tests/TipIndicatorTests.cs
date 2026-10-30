@@ -105,10 +105,9 @@ internal static class TipIndicatorTests
         });
         using var server = new Tip.TipServer(invoker, composition, () => settings);
         var sessions = new Dictionary<string, MeltypeSession>();
-        var handle = typeof(Tip.TipServer).GetMethod("Handle", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        void Send(string json)
+        void Send(string json, bool looksLikeGame = false)
         {
-            handle.Invoke(server, [json, sessions]);
+            server.Handle(json, sessions, looksLikeGame);
             Application.DoEvents();
         }
 
@@ -125,6 +124,9 @@ internal static class TipIndicatorTests
         Send("{\"op\":\"indicator\",\"thread\":1,\"japanese\":\"false\"}");
         Send("{\"op\":\"indicator\",\"thread\":1}");
         Assert.Equal(2, displayRequests, "不完全な通知は表示しない");
+
+        Send("{\"op\":\"indicator\",\"process\":\"harness\",\"thread\":1,\"japanese\":true}", looksLikeGame: true);
+        Assert.Equal(2, displayRequests, "ゲームとして判定された接続では表示を依頼しない");
 
         settings.Enabled = false;
         Send("{\"op\":\"indicator\",\"thread\":1,\"japanese\":true}");

@@ -16,7 +16,7 @@ on:
   issue_comment:
     types: [created, edited]
   schedule:
-    # 件数の超過は警告から 24 時間で Draft にするので、期限の確認は 1 時間ごとにする
+    # 件数の超過のラベルの付け外しと、14 日の期限の確認は 1 時間ごとにする
     - cron: '17 * * * *'
   workflow_dispatch:
 
@@ -30,16 +30,17 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - run: node --test .github/bot/policy.test.mjs .github/bot/assignee.test.mjs
 
+  # policy-enforce の並び待ちで取り消された run は PR の Checks に cancelled で残るので、PR のイベントでは動かさない。
+  # PR の変化は、次の Issue・コメントのイベントか定期実行で拾う。
   enforce:
     if: >-
-      github.event_name != 'pull_request' &&
-      (github.event_name != 'issue_comment' || github.event.comment.user.type != 'Bot') &&
-      github.event.pull_request.user.type != 'Bot'
+      !contains(fromJSON('["pull_request","pull_request_target"]'), github.event_name) &&
+      (github.event_name != 'issue_comment' || github.event.comment.user.type != 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -50,7 +51,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           sparse-checkout: .github/bot
@@ -76,7 +77,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           sparse-checkout: .github/bot

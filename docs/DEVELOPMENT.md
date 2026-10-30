@@ -90,6 +90,7 @@ dotnet run --project src/Meltype.Core.Tests -- --eval       # 品質テスト (�
 dotnet run --project src/Meltype.Core.Tests -- --version    # 版 (Meltype.Core)
 dotnet run --project src/Meltype.Core.Tests -- --repro kyouhagoogle enter   # 打ったときの見え方と確定の結果
 dotnet run --project src/Meltype.Core.Tests -- --mixed-bench out.json       # 日本語の文の中の英単語が正しく分かれるか (約 550 例)
+dotnet run --project src/Meltype.Core.Tests -- --expect src/Meltype.Core.Tests/data/issue-cases.tsv out.json  # 報告された誤変換
 dotnet run -c Release --project src/Meltype.Core.Tests -- --perf perf.json  # 変換エンジンの遅延 (p95 / p99)・候補の数・控え・メモリ・正解率 (MELTYPE_MOZC が要る)
 ```
 
@@ -97,8 +98,9 @@ Windows のアプリ本体・Mac / Linux の IME も同じ形で版を出せま�
 Windows のアプリ本体は GUI アプリ (WinExe) なので、cmd では版がプロンプトの後に出ます。
 コンソールアプリ (Exe) にすると、エクスプローラーやタスク スケジューラから起動したときにコンソールの窓が一瞬フォーカスを取り、その間に打ったキーが消えるので、WinExe のままにしています。
 
-環境変数 `MELTYPE_SCORED=1` を付けると、区切りを点数で選ぶ α版 (設定「区切りを点数で選ぶ (α版)」、`ScoredSegmentation.cs`) で動かせます。
-今までの区切りと比べるときは、同じコマンドを `MELTYPE_SCORED=0` と `1` で 2 回動かします。`--mixed-bench` は `MELTYPE_BENCH_OFFSET=31` などで調べる語を変えられます。
+`src/Meltype.Core.Tests/data/issue-cases.tsv` は、GitHub の issue (open / closed) から「打ったもの」と「期待した結果」を取り出したコーパスです。判定の作り方に関係なく同じ物差しで比べられるので、判定を変えるときは `--eval` と合わせて `--expect` で流します。
+
+`--mixed-bench` は `MELTYPE_BENCH_OFFSET=31` などで調べる語を変えられます。
 
 機能を足す前と後で変換エンジンの速さ・精度を比べるときは、両方の版で `--perf` を動かして `--perf-compare 前.json 後.json` で比べます。測る項目と比べ方は [tools/performance](../tools/performance/README.md) にあります。
 
