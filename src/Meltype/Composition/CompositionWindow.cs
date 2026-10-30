@@ -158,11 +158,6 @@ internal sealed class CompositionWindow : PopupForm
         if (_above is { } a) location.Y = a.Bottom - size.Height >= screen.Top ? a.Bottom - size.Height : a.BelowY;
         if (location.X + size.Width > screen.Right) location.X = Math.Max(screen.Left, screen.Right - size.Width);
         if (location.Y + size.Height > screen.Bottom) location.Y = overlay ? Math.Max(screen.Top, screen.Bottom - size.Height) : Math.Max(screen.Top, location.Y - size.Height - 28);
-        // 左・上にもはみ出さないようにし、作業領域より大きくしない。フォーカスを失った窓 (最小化した窓の -32000 など) の入力位置が届くと、
-        // 画面の外に出たり、画面より大きくなったりして、変換ボックスが見えなくなっていた (issue #1138)
-        size = new Size(Math.Min(size.Width, screen.Width), Math.Min(size.Height, screen.Height));
-        location.X = Math.Clamp(location.X, screen.Left, screen.Right - size.Width);
-        location.Y = Math.Clamp(location.Y, screen.Top, screen.Bottom - size.Height);
         SetBounds(location.X, location.Y, size.Width, size.Height);
         if (!Visible) Show();
         Invalidate();

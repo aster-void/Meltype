@@ -682,6 +682,13 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         _committedWhileVisible = "";
         _beside = BesideSearch.None;
         var caret = FindCaret();
+        // どのモニターにも入らない入力位置 (フォーカスを失った窓の -32000 など) は、分からないものとして扱う。
+        // そのまま使うと、そこから決めた拡大率・文字の大きさ・位置で、変換ボックスが画面の外や画面より大きく出て見えなくなった (issue #1138)
+        if (caret is { } outside && !Screen.AllScreens.Any(screen => screen.Bounds.Contains(outside.Location)))
+        {
+            Diagnostics.Log.Info($"変換ボックスを出す入力位置がどのモニターにも入らないので、分からないものとして扱います: {outside.X},{outside.Y} 高さ {outside.Height}");
+            caret = null;
+        }
         // 入力欄が空のとき、アプリによっては入力位置ではなく入力欄の枠 (40px の欄など) や、複数行の欄全体の四角形が返る。
         // 枠と同じ高さなら、文字の高さは枠のおよそ半分 (1 行の欄の文字は上下の真ん中にある)。高すぎる四角形は、文字の高さが分からない。
         var element = Focus.Current.Bounds;
