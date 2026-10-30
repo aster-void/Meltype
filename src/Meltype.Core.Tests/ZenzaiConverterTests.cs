@@ -15,7 +15,7 @@ internal static class ZenzaiConverterTests
     /// <summary>受け取った prompt を記録して、answer(prompt) を content にして返す。status が 200 以外ならそのエラーを返す。</summary>
     private sealed class FakeServer : IDisposable
     {
-        private HttpListener _listener = new();
+        private readonly HttpListener _listener = new();
         public List<string> Prompts { get; } = [];
         public int Status { get; set; } = 200;
         public Func<string, string> Answer { get; set; } = _ => "";
@@ -34,9 +34,7 @@ internal static class ZenzaiConverterTests
             {
                 port = Random.Shared.Next(20000, 60000);
                 try { _listener.Prefixes.Add($"http://127.0.0.1:{port}/"); _listener.Start(); break; }
-                // Windows では、Start に失敗した (選んだポートが使われていた) HttpListener は閉じられて使えなくなる。
-                // 同じものに次のポートを足すと ObjectDisposedException になって、テストがときどき落ちていた (#1178)。作り直して試す
-                catch (HttpListenerException) { _listener.Close(); _listener = new HttpListener(); }
+                catch (HttpListenerException) { _listener.Prefixes.Clear(); }
             }
             Endpoint = new Uri($"http://127.0.0.1:{port}/");
             Task.Run(Loop);
