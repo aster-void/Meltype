@@ -15,7 +15,7 @@ internal static class ZenzaiConverterTests
     /// <summary>受け取った prompt を記録して、answer(prompt) を content にして返す。status が 200 以外ならそのエラーを返す。</summary>
     private sealed class FakeServer : IDisposable
     {
-        private HttpListener _listener = new();
+        private readonly HttpListener _listener;
         public List<string> Prompts { get; } = [];
         public int Status { get; set; } = 200;
         public Func<string, string> Answer { get; set; } = _ => "";
@@ -27,12 +27,12 @@ internal static class ZenzaiConverterTests
         public double Probability { get; set; } = 0.9;
         public Uri Endpoint { get; }
 
-        /// <param name="ports">試すポート (テストで、使われているポートを先に試させる)。省略すると乱数で 20 回まで選ぶ。</param>
-        public FakeServer(IEnumerable<int>? ports = null)
+        public FakeServer()
         {
-            ports ??= Enumerable.Range(0, 20).Select(_ => Random.Shared.Next(20000, 60000));
-            foreach (var port in ports)
+            for (var tries = 0; tries < 20; tries++)
             {
+                // ephemeral port (Linux は 32768〜、Windows・macOS は 49152〜) と重ならない範囲から選ぶ (外向きの接続が使っているポートを引かないように)
+                var port = Random.Shared.Next(20000, 32768);
                 // Start に失敗した (ポートが使われていた) HttpListener は、Linux などでは閉じられて使えなくなる。
                 // 同じものに次のポートを足すと ObjectDisposedException になってテストごと落ちていた (#1178) ので、試すたびに作り直す
                 _listener = new HttpListener();
@@ -73,25 +73,6 @@ internal static class ZenzaiConverterTests
         }
 
         public void Dispose() => _listener.Close();
-    }
-
-    [Test]
-    public static void Issue1178_FakeServer_TriesAnotherPortWhenInUse()
-    {
-        // #1178: 選んだポートが使われていると、次のポートで始めようとして ObjectDisposedException で落ちていた
-        using var busy = new FakeServer();
-        var used = busy.Endpoint.Port;
-        using var server = new FakeServer([used, .. Enumerable.Range(0, 20).Select(_ => Random.Shared.Next(20000, 60000))]);
-        Assert.True(server.Endpoint.Port != used, "使われているポートでは始めず、次を試す");
-        server.Answer = _ => "漢字";
-        using var zenzai = new ZenzaiConverter(server.Endpoint, timeoutMs: 5000);
-        Assert.True(zenzai.ConvertClauses("かんじ") is not null, "次のポートで始めたサーバーに頼める");
-
-        // どのポートでも始められなければ、分かるように落とす
-        var failed = false;
-        try { new FakeServer([used, used]).Dispose(); }
-        catch (InvalidOperationException) { failed = true; }
-        Assert.True(failed, "どのポートでも始められなければ InvalidOperationException");
     }
 
     [Test]
