@@ -708,9 +708,16 @@ internal static class CompositionTests
     {
         // #1213: 学習がなくても、よく使うあいさつを予測の候補に出す
         var predictor = new Predictor(null, null, null);
-        foreach (var (kana, phrase) in new[] { ("おは", "おはようございます"), ("ありが", "ありがとうございます"), ("おつか", "お疲れ様です"), ("よろ", "よろしくお願いします") })
+        foreach (var (kana, phrase) in new[] { ("おは", "おはようございます"), ("ありがとう", "ありがとうございます"), ("おつかれ", "お疲れ様です"), ("よろし", "よろしくお願いします"), ("こんにち", "こんにちは") })
             Assert.True(predictor.PredictJapanese(kana).Contains(phrase), kana + ": " + string.Join(",", predictor.PredictJapanese(kana)));
         Assert.Equal(0, predictor.PredictJapanese("お").Count, "1 文字では出さない");
+        // ほかの語の打ち始めにも出る読みでは出さない (どうして・もう少し・今回・おつかい・ありがたい・よろこぶ)
+        foreach (var kana in new[] { "どう", "もう", "こん", "おつか", "ありが", "よろ" })
+            Assert.Equal(0, predictor.PredictJapanese(kana).Count, kana + ": " + string.Join(",", predictor.PredictJapanese(kana)));
+        Assert.True(!predictor.PredictJapanese("こんに").Contains("こんばんは"), "こんにちは と こんばんは は見分けがつくまで出さない");
+        // よろしく と打ったときも、どうぞよろしくお願いします を出す (読みの途中から)
+        Assert.True(predictor.PredictJapanese("よろしく") is { } yoroshiku && yoroshiku.Contains("よろしくお願いします") && yoroshiku.Contains("どうぞよろしくお願いします"),
+            string.Join(",", predictor.PredictJapanese("よろしく")));
         Assert.Equal(0, predictor.PredictJapanese("きょうは").Count, "定型句にない読みでは出さない");
         Assert.True(!predictor.PredictJapanese("こんにちは").Contains("こんにちは"), "打ち終えた読みと同じ語句は出さない");
 
@@ -735,12 +742,12 @@ internal static class CompositionTests
 
         // Esc で選ぶのをやめる (打った読みは残る)
         var cancel = new Keyboard(predictor: predictor);
-        cancel.Type("yoro");
+        cancel.Type("yorosi");
         cancel.Press(VirtualKeys.Tab);
         cancel.Press(VirtualKeys.Escape);
         Assert.Equal(-1, cancel.Host.View!.SelectedPrediction);
         cancel.Press(VirtualKeys.Return);
-        Assert.Equal("よろ", cancel.Host.Document);
+        Assert.Equal("よろし", cancel.Host.Document);
     }
 
     [Test]
