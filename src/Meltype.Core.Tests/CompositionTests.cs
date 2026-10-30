@@ -704,6 +704,46 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void Issue1213_GreetingPredictions_WithoutLearning()
+    {
+        // #1213: 学習がなくても、よく使うあいさつを予測の候補に出す
+        var predictor = new Predictor(null, null, null);
+        foreach (var (kana, phrase) in new[] { ("おは", "おはようございます"), ("ありが", "ありがとうございます"), ("おつか", "お疲れ様です"), ("よろ", "よろしくお願いします") })
+            Assert.True(predictor.PredictJapanese(kana).Contains(phrase), kana + ": " + string.Join(",", predictor.PredictJapanese(kana)));
+        Assert.Equal(0, predictor.PredictJapanese("お").Count, "1 文字では出さない");
+        Assert.Equal(0, predictor.PredictJapanese("きょうは").Count, "定型句にない読みでは出さない");
+        Assert.True(!predictor.PredictJapanese("こんにちは").Contains("こんにちは"), "打ち終えた読みと同じ語句は出さない");
+
+        // 前に確定した語句を、定型句より先に出す
+        var phrases = new PhraseHistory(null);
+        phrases.Remember("おはよう", "お早う");
+        Assert.Equal("お早う", new Predictor(phrases, null, null).PredictJapanese("おは")[0]);
+
+        // Tab で選んで Enter で確定する。選ばなければ、今までどおり打った読みを確定する
+        var k = new Keyboard(predictor: predictor);
+        k.Type("oha");
+        Assert.True(k.Host.View!.Predictions?.Contains("おはようございます") == true, string.Join(",", k.Host.View.Predictions ?? []));
+        k.Press(VirtualKeys.Tab);
+        Assert.Equal("おはようございます", k.Showing);
+        k.Press(VirtualKeys.Return);
+        Assert.Equal("おはようございます", k.Host.Document);
+
+        var plain = new Keyboard(predictor: predictor);
+        plain.Type("oha");
+        plain.Press(VirtualKeys.Return);
+        Assert.Equal("おは", plain.Host.Document);
+
+        // Esc で選ぶのをやめる (打った読みは残る)
+        var cancel = new Keyboard(predictor: predictor);
+        cancel.Type("yoro");
+        cancel.Press(VirtualKeys.Tab);
+        cancel.Press(VirtualKeys.Escape);
+        Assert.Equal(-1, cancel.Host.View!.SelectedPrediction);
+        cancel.Press(VirtualKeys.Return);
+        Assert.Equal("よろ", cancel.Host.Document);
+    }
+
+    [Test]
     public static void Issue890_EnglishNamePredictions_FromKanaPrefix()
     {
         // #890: 社名・サービス名を読みで打ちかけたら、英字の名前も予測の候補に出す (設定が ON のとき)
