@@ -23,6 +23,10 @@ internal sealed class SettingsForm : Form, IMessageFilter
     private readonly MeltypeEngine _engine;
     private readonly List<Binding> _bindings = [];
     private readonly TableLayoutPanel _body = new() { Dock = DockStyle.Fill, ColumnCount = 1, AutoScroll = true, Padding = new Padding(8, 8, SystemInformation.VerticalScrollBarWidth + 4, 8) };
+    // 左の分類の一覧。選ぶと、その分類の枠まで設定の一覧をスクロールする (issue #1200)
+    private readonly ListBox _categories = new() { Dock = DockStyle.Left, IntegralHeight = false, BorderStyle = BorderStyle.None };
+    private readonly List<GroupBox> _groups = [];
+    private bool _scrollingToCategory;
     private readonly Label _help = new() { Dock = DockStyle.Fill, ForeColor = SystemColors.GrayText, Padding = new Padding(8, 4, 8, 4), AutoEllipsis = true };
     // 説明の欄。出している説明に合わせて高さを変えると、カーソルを動かすたびに設定の一覧の高さが変わり、
     // 文字が一瞬上に飛んだり、スクロールバーのつまみの大きさが変わったりするので、高さを 4 行ぶんに固定する。
@@ -58,7 +62,8 @@ internal sealed class SettingsForm : Form, IMessageFilter
         // 画面に収まらないときは画面に合わせる (中身はスクロールできる)。
         var area = Screen.FromPoint(Cursor.Position).WorkingArea;
         var size = LogicalToDeviceUnits(740);
-        Size = new Size(Math.Min(size, area.Width - 40), Math.Min(size, area.Height - 60));
+        // 左の分類の一覧の分だけ幅を広げる
+        Size = new Size(Math.Min(size + LogicalToDeviceUnits(120), area.Width - 40), Math.Min(size, area.Height - 60));
         MinimumSize = new Size(480, 400);
         Font = new Font("Yu Gothic UI", 9.5F);
 
@@ -69,6 +74,8 @@ internal sealed class SettingsForm : Form, IMessageFilter
             group.Dock = DockStyle.Fill;
             _body.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             _body.Controls.Add(group);
+            _groups.Add(group);
+            _categories.Items.Add(group.Text);
         }
         // 自動スクロールの表は、最後の行の下の余白を含めないことがあり、一番下の枠が少し見切れる。空の行で余白を取る
         _body.RowStyles.Add(new RowStyle(SizeType.Absolute, 16));
@@ -118,6 +125,7 @@ internal sealed class SettingsForm : Form, IMessageFilter
         buttons.Controls.AddRange(cancel, ok, defaults);
 
         Controls.Add(_body);
+        Controls.Add(BuildCategoryList());
         Controls.Add(BuildViewOptions());
         Controls.Add(BuildProfileBar());
         Controls.Add(_helpPanel);
@@ -129,6 +137,42 @@ internal sealed class SettingsForm : Form, IMessageFilter
         LoadFrom(_draft);
         RefreshProfiles();
         _opened = Collect();
+    }
+
+    /// <summary>
+    /// 左の分類の一覧。選んだ分類の枠を設定の一覧の一番上に出す。スクロールしたら、いま一番上にある分類を選んだ状態にする。
+    /// </summary>
+    private Control BuildCategoryList()
+    {
+        _categories.Width = LogicalToDeviceUnits(110);
+        _categories.ItemHeight = _categories.Font.Height + LogicalToDeviceUnits(10);
+        _categories.SelectedIndexChanged += (_, _) =>
+        {
+            if (_scrollingToCategory || _categories.SelectedIndex < 0) return;
+            _scrollingToCategory = true;
+            // 枠の Top は今のスクロール位置からの位置なので、スクロールの量を足して一覧の先頭からの位置にする
+            _body.AutoScrollPosition = new Point(0, _groups[_categories.SelectedIndex].Top - _body.AutoScrollPosition.Y - _body.Padding.Top);
+            _scrollingToCategory = false;
+        };
+        void FollowScroll()
+        {
+            if (_scrollingToCategory || _groups.Count == 0) return;
+            var index = _groups.FindLastIndex(g => g.Top <= _body.Padding.Top + 1);
+            _scrollingToCategory = true;
+            _categories.SelectedIndex = Math.Max(0, index);
+            _scrollingToCategory = false;
+        }
+        _body.Scroll += (_, _) => FollowScroll();
+        _body.MouseWheel += (_, _) => FollowScroll();
+        if (_categories.Items.Count > 0)
+        {
+            _scrollingToCategory = true;
+            _categories.SelectedIndex = 0;
+            _scrollingToCategory = false;
+        }
+        var panel = new Panel { Dock = DockStyle.Left, Width = _categories.Width + LogicalToDeviceUnits(9), Padding = new Padding(LogicalToDeviceUnits(8), LogicalToDeviceUnits(8), 0, LogicalToDeviceUnits(8)) };
+        panel.Controls.Add(_categories);
+        return panel;
     }
 
     /// <summary>プロファイルの欄の下: 説明の欄を出すか、ホイールで値を変えるか。</summary>
