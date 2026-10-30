@@ -56,6 +56,8 @@ if(BUILD_TESTING)
     add_dependencies(testpopup meltype)
     add_test(NAME testpopup-manual COMMAND testpopup manual)
     add_test(NAME testpopup-spelling COMMAND testpopup spelling)
+    add_test(NAME testpopup-guide-default COMMAND testpopup guide-default)
+    add_test(NAME testpopup-guide-on COMMAND testpopup guide-on)
 
     set(MELTYPE_LEGACY_NATIVE_DIR "" CACHE PATH "旧 Native の互換テスト用ディレクトリ（未指定なら登録しない）")
     if(NOT "${MELTYPE_LEGACY_NATIVE_DIR}" STREQUAL "")

@@ -11,6 +11,15 @@ namespace Meltype.Composition;
 
 /// <summary>
 /// 変換ボックスに表示する内容。変換中は文節ごとの文字列 (Clauses) と選択中の文節、その文節の候補を持つ。
+/// <para>
+/// Committed は、この表示を確定したときに文書へ入る文字列。IBus はフォーカスが外れたとき
+/// 「表示中の preedit」をそのまま確定するので、表示と確定が違うと文書と本体の認識がずれる
+/// (「かn」を表示したまま確定すると、本体は「かん」で確定していて食い違う)。
+/// </para>
+/// <para>
+/// ContextHint は入力内容に応じた操作の案内 (手動の英字提案・予測候補の選択)。固定の操作一覧は含めない。
+/// 書き間違いの修正は Suggestion に入れる。案内が無ければ null。
+/// </para>
 /// </summary>
 public sealed record CompositionView(
     string Text,
@@ -26,16 +35,7 @@ public sealed record CompositionView(
     IReadOnlyList<string>? Predictions = null,
     int SelectedPrediction = -1,
     string? Typed = null,
-    /// <summary>
-    /// この表示を確定したときに文書へ入る文字列。IBus はフォーカスが外れたとき
-    /// 「表示中の preedit」をそのまま確定するので、表示と確定が違うと文書と本体の認識がずれる
-    /// (「かn」を表示したまま確定すると、本体は「かん」で確定していて食い違う)。
-    /// </summary>
     string? Committed = null,
-    /// <summary>
-    /// 入力内容に応じた操作の案内 (手動の英字提案・予測候補の選択)。固定の操作一覧は含めない。
-    /// 書き間違いの修正は Suggestion に入れる。案内が無ければ null。
-    /// </summary>
     string? ContextHint = null);
 
 /// <summary>CompositionController が外界とやり取りする口。テストでは偽物に差し替える。</summary>

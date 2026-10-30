@@ -539,8 +539,30 @@ internal static class SessionFacadeTests
     public static void Json_IsEscaped()
     {
         var result = new SessionResult(true, [new TextEdit(2, "a\"b\\c\n")], new CompositionView("x", ["y"], 0, true, "h", ["x"], 0));
-        const string expected = """{"consumed":true,"commits":[{"deleteBefore":2,"text":"a\"b\\c\n"}],"view":{"text":"x","committed":null,"converting":true,"selectedIndex":0,"selectedClause":0,"hint":"h","contextHint":null,"candidates":["y"],"clauses":["x"],"suggestion":null,"meaning":null,"notes":[null],"predictions":[],"selectedPrediction":-1,"typed":null}}""";
+        const string expected = """{"consumed":true,"showGuide":true,"commits":[{"deleteBefore":2,"text":"a\"b\\c\n"}],"view":{"text":"x","committed":null,"converting":true,"selectedIndex":0,"selectedClause":0,"hint":"h","contextHint":null,"candidates":["y"],"clauses":["x"],"suggestion":null,"meaning":null,"notes":[null],"predictions":[],"selectedPrediction":-1,"typed":null}}""";
         Assert.Equal(expected, result.ToJson());
+    }
+
+    [Test]
+    public static void ShowGuide_IsSentToNativeWithoutChangingHints()
+    {
+        foreach (var showGuide in new[] { true, false })
+        {
+            var settings = new Settings { ShowGuide = showGuide };
+            var session = new MeltypeSession(CompositionTests.Detector, new CompositionTests.FakeConverter(),
+                new CompositionOptions { Predictor = new Predictor(null, null, null), Predictions = () => true }, () => settings);
+            var typing = Type(session, "decis", "I made ")[^1];
+            using var json = JsonDocument.Parse(typing.ToJson());
+            Assert.Equal(showGuide, json.RootElement.GetProperty("showGuide").GetBoolean(), "表示設定を Native の結果へ渡す");
+            Assert.Equal("Tab 予測の候補を選ぶ", typing.View!.ContextHint, "固定ガイドを隠しても文脈の案内は変えない");
+            Assert.Equal("Tab 予測の候補を選ぶ　Space 変換　←→ 文節　Enter 確定　F7 カタカナ　F10 英字", typing.View.Hint, "他のフロントが使う従来の案内は変えない");
+            Assert.True(typing.View.Predictions!.Contains("decision"), "表示設定によらず予測候補を残す");
+            session.HandleKey(VirtualKeys.F6, null, false, false, false, false);
+            var converting = session.HandleKey(VirtualKeys.Space, null, false, false, false, false);
+            using var convertedJson = JsonDocument.Parse(converting.ToJson());
+            Assert.Equal(showGuide, convertedJson.RootElement.GetProperty("showGuide").GetBoolean(), "変換中も表示設定を保つ");
+            Assert.True(converting.View is { Converting: true, ContextHint: null }, "文脈の案内がない表示は null のまま返す");
+        }
     }
 
     [Test]

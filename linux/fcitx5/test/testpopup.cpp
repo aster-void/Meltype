@@ -22,7 +22,7 @@ using namespace fcitx;
 namespace {
 class SettingsFixture {
 public:
-    bool create(bool manual) {
+    bool create(bool manual, const std::string &guideSetting) {
         char path[] = "/tmp/meltype-popup-XXXXXX";
         const auto *created = mkdtemp(path);
         if (!created) return false;
@@ -30,7 +30,7 @@ public:
         std::ofstream config(directory_ + "/config.json");
         config << R"({"SettingsVersion":5,"DetectionLevel":")"
                << (manual ? "Manual" : "Balanced")
-               << R"(","InputStyle":"Romaji","LiveConversion":false,"LearningEnabled":false,"PredictiveCandidates":false,"TabConversion":true,"SpaceAroundEnglish":false})";
+               << R"(","InputStyle":"Romaji","LiveConversion":false,"LearningEnabled":false,"PredictiveCandidates":false,"TabConversion":true,"SpaceAroundEnglish":false)" << guideSetting << '}';
         return config.good() && setenv("MELTYPE_DATA_DIR", directory_.c_str(), 1) == 0;
     }
 
@@ -91,22 +91,30 @@ bool manualProposal(Instance *instance, AddonInstance *frontend, bool legacy) {
     return true;
 }
 
-bool compactComposition(Instance *instance, AddonInstance *frontend) {
+bool compositionGuides(Instance *instance, AddonInstance *frontend, bool showGuide) {
     const auto uuid = frontend->call<ITestFrontend::createInputContext>("testapp");
     auto *ic = instance->inputContextManager().findByUUID(uuid);
     if (!expect(ic != nullptr, "通常入力の入力欄を作れる")) return false;
     instance->setCurrentInputMethod(ic, "meltype", true);
     type(frontend, uuid, "nihongo");
-    if (!expect(ic->inputPanel().preedit().toString() == "にほんご" && ic->inputPanel().auxDown().empty(), "入力文字を残して固定ガイドを隠す")) return false;
+    if (!expect(ic->inputPanel().preedit().toString() == "にほんご", "ガイド設定によらず入力文字を表示する")) return false;
+    const auto typingHint = ic->inputPanel().auxDown().toString();
+    if (!expect(showGuide ? typingHint.find("F7 カタカナ") != std::string::npos : typingHint.empty(),
+        showGuide ? "入力中の固定ガイドを表示する" : "入力中の固定ガイドを隠す")) return false;
     press(frontend, uuid, "space");
-    if (!expect(ic->inputPanel().candidateList() && ic->inputPanel().auxDown().empty(), "候補を残して変換中の固定ガイドも隠す")) return false;
+    if (!expect(ic->inputPanel().candidateList() != nullptr, "ガイド設定によらず変換候補を表示する")) return false;
+    const auto convertingHint = ic->inputPanel().auxDown().toString();
+    if (!expect(showGuide ? convertingHint.find("←→ 文節") != std::string::npos : convertingHint.empty(),
+        showGuide ? "変換中の固定ガイドを表示する" : "変換中の固定ガイドを隠す")) return false;
     const auto selected = ic->inputPanel().preedit().toString();
     if (!expect(!selected.empty(), "選択中の候補を表示する")) return false;
     frontend->call<ITestFrontend::pushCommitExpectation>(selected);
     press(frontend, uuid, "Return");
     if (!expect(ic->inputPanel().preedit().empty() && !ic->inputPanel().candidateList(), "確定で文字と候補一覧を閉じる")) return false;
     frontend->call<ITestFrontend::destroyInputContext>(uuid);
-    std::cout << "PASS: 通常の入力・候補・確定を保ち、固定ガイドだけを隠す\n";
+    std::cout << (showGuide
+        ? "PASS: 通常の入力・候補・確定を保ち、固定ガイドを表示する\n"
+        : "PASS: 通常の入力・候補・確定を保ち、固定ガイドだけを隠す\n");
     return true;
 }
 
@@ -155,10 +163,13 @@ bool spellingProposal(Instance *instance, AddonInstance *frontend) {
 
 int main(int argc, char *args[]) {
     const std::string mode = argc > 1 ? args[1] : "manual";
-    if (mode != "manual" && mode != "spelling" && mode != "legacy") return 1;
+    const bool guideTest = mode == "guide-default" || mode == "guide-on";
+    if (mode != "manual" && mode != "spelling" && mode != "legacy" && !guideTest) return 1;
+    // 既定値は項目を省いて検証する。非表示・旧 Native のテストでは明示的に OFF にする。
+    const std::string guideSetting = mode == "guide-default" ? "" : mode == "guide-on" ? ",\"ShowGuide\":true" : ",\"ShowGuide\":false";
     // Native の初期化より前に、実際のユーザー設定から隔離する。
     SettingsFixture settings;
-    if (!expect(settings.create(mode != "spelling"), "テスト専用の設定を作れる")) return 1;
+    if (!expect(settings.create(mode == "manual" || mode == "legacy", guideSetting), "テスト専用の設定を作れる")) return 1;
     setupTestingEnvironment(FCITX5_MELTYPE_BINARY_DIR,
         {FCITX5_MELTYPE_BINARY_DIR, FCITX5_SYSTEM_ADDON_DIR}, {"test"});
     char arg0[] = "testpopup";
@@ -179,9 +190,10 @@ int main(int argc, char *args[]) {
             group.inputMethodList().push_back(InputMethodGroupItem("meltype"));
             group.setDefaultInputMethod("");
             instance.inputMethodManager().setGroup(group);
-            bool ok = mode == "spelling" ? spellingProposal(&instance, frontend) : manualProposal(&instance, frontend, mode == "legacy");
-            if (ok && mode == "spelling") ok = compactComposition(&instance, frontend);
-            if (ok && mode == "spelling") ok = verticalCandidates(&instance, frontend);
+            bool ok = guideTest ? compositionGuides(&instance, frontend, true)
+                : mode == "spelling" ? spellingProposal(&instance, frontend) : manualProposal(&instance, frontend, mode == "legacy");
+            if (ok && mode == "spelling") ok = compositionGuides(&instance, frontend, false);
+            if (ok && (mode == "spelling" || guideTest)) ok = verticalCandidates(&instance, frontend);
             result = ok ? 0 : 1;
         } else {
             std::cerr << "FAIL: 表示テストのアドオンを読めない\n";
