@@ -142,7 +142,7 @@ internal sealed class SettingsForm : Form, IMessageFilter
     /// <summary>
     /// 左の分類の一覧。選んだ分類の枠を設定の一覧の一番上に出す。スクロールしたら、いま一番上にある分類を選んだ状態にする。
     /// </summary>
-    private Control BuildCategoryList()
+    private Panel BuildCategoryList()
     {
         _categories.Width = LogicalToDeviceUnits(110);
         _categories.ItemHeight = _categories.Font.Height + LogicalToDeviceUnits(10);
