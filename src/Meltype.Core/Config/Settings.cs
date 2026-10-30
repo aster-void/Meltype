@@ -430,6 +430,10 @@ public sealed class Settings
      Description("「入力モードをカーソルの近くに表示」が ON のとき、入力欄をクリックしたとき (フォーカスが入ったとき) にも「あ」「A」を出します。OFF にすると、半角/全角 を押したときだけ出します。")]
     public bool ShowModeIndicatorOnFocus { get; set; } = true;
 
+    [Category("1. 全般"), DisplayName("Meltype IME でも入力モードをカーソルの近くに表示"),
+     Description("Meltype IME の入力モードを切り替えたとき、カーソルの近くに「あ」(日本語) か「A」(英数) を1.2秒表示します。Meltype キーボードの表示設定とは独立して切り替えられます。表示の色は共用です。")]
+    public bool ShowTsfModeIndicator { get; set; }
+
     [Category("1. 全般"), DisplayName("入力モードの表示の色: 日本語 (あ)"),
      Description("「あ」の背景色を #RRGGBB で書きます (例: #007ACC)。空なら青。壁紙・アプリのテーマで見えにくいときに変えます。")]
     public string ModeIndicatorJapaneseColor { get; set; } = "";
