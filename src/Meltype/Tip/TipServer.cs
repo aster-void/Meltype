@@ -527,7 +527,7 @@ internal sealed class TipServer : IDisposable
                     .Select(b => $"{{\"key\":{b.Key},\"mods\":{(int)b.Modifiers}}}")) + "]";
                 // コードエディター・ターミナルのアプリか (DLL は、キャレットが動くたびに入力モードの表示を問い合わせる)
                 var codeApp = _settings().ProfileFor(process + ".exe") == AppProfile.Code;
-                return $"{{\"active\":{(greeting ? "true" : "false")},\"toggleShortcuts\":{shortcutJson},\"code\":{(codeApp ? "true" : "false")},\"directDetection\":{(DirectDetectionFor(process) ? "true" : "false")},{FullWidthSpaceJson()}\"consumed\":false,\"commits\":[],\"view\":null}}";
+                return $"{{\"active\":{(greeting ? "true" : "false")},\"toggleShortcuts\":{shortcutJson},\"code\":{(codeApp ? "true" : "false")},\"directDetection\":{(DirectDetectionFor(process) ? "true" : "false")},{FullWidthSpaceJson()}{ModeIndicatorJson()}\"consumed\":false,\"commits\":[],\"view\":null}}";
             }
             case "close":
                 if (sessions.Remove(sid, out var closing) && closing.IsComposing) closing.CommitPending();
@@ -628,13 +628,16 @@ internal sealed class TipServer : IDisposable
     /// </summary>
     private string FullWidthSpaceJson() => $"\"fullWidthSpace\":{(_settings().FullWidthSpaceByDefault ? "true" : "false")},";
 
+    /// <summary>設定「Meltype IME でも入力モードをカーソルの近くに表示」。DLL は、これが ON のときだけ indicator を依頼する (OFF なら切り替えのたびの問い合わせをしない)。</summary>
+    private string ModeIndicatorJson() => $"\"modeIndicator\":{(_settings().ShowTsfModeIndicator ? "true" : "false")},";
+
     private string Reply(bool active, SessionResult result, bool code, bool english, bool? directDetection,
         bool switchedToJapanese = false, bool? directEnglishWord = null)
     {
         var json = result.ToJson();
         var detection = directDetection is { } enabled ? $"\"directDetection\":{(enabled ? "true" : "false")}," : "";
         var englishWord = directEnglishWord is { } isEnglishWord ? $"\"directEnglishWord\":{(isEnglishWord ? "true" : "false")}," : "";
-        return $"{{\"active\":{(active ? "true" : "false")},\"code\":{(code ? "true" : "false")},\"english\":{(english ? "true" : "false")},{detection}{englishWord}{FullWidthSpaceJson()}\"switchToJapanese\":{(switchedToJapanese ? "true" : "false")},{json[1..]}";
+        return $"{{\"active\":{(active ? "true" : "false")},\"code\":{(code ? "true" : "false")},\"english\":{(english ? "true" : "false")},{detection}{englishWord}{FullWidthSpaceJson()}{ModeIndicatorJson()}\"switchToJapanese\":{(switchedToJapanese ? "true" : "false")},{json[1..]}";
     }
 
     /// <summary>

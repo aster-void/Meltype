@@ -4,13 +4,20 @@
 // 実際の TSF コンパートメントと入力欄を使う。パイプだけを記録用に置き換え、
 // 通常のユーザーの Meltype・辞書・設定には接続しない。
 #include "TextService.h"
+#include <atomic>
 #include <cstdio>
+#include <cwchar>
 
 namespace meltype {
 HINSTANCE g_module = nullptr;
 LONG g_locks = 0;
 int indicatorRequests = 0;
-void TipLog(const wchar_t*, ...) {}
+std::atomic<bool> indicatorEnabled = false;
+int helloApplied = 0;
+void TipLog(const wchar_t* format, ...) {
+    // ApplyHello が設定を反映した後に出す接続状態のログを待機条件に使う。
+    if (std::wcscmp(format, L"Meltype.exe: %s") == 0) ++helloApplied;
+}
 std::string ToUtf8(const std::wstring& text) {
     if (text.empty()) return {};
     int size = WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
@@ -28,7 +35,9 @@ std::wstring FromUtf8(const std::string& text) {
 void PipeClient::Close() {}
 bool PipeClient::Transact(const std::string& request, std::string& response, DWORD, bool) {
     if (request.find("\"op\":\"indicator\"") != std::string::npos) ++indicatorRequests;
-    response = "{\"active\":true,\"code\":false,\"consumed\":false,\"commits\":[],\"view\":null}";
+    response = std::string("{\"active\":true,\"code\":false,\"modeIndicator\":") +
+               (indicatorEnabled.load() ? "true" : "false") +
+               ",\"consumed\":false,\"commits\":[],\"view\":null}";
     return true;
 }
 }
@@ -69,38 +78,55 @@ int main() {
         TfClientId client = TF_CLIENTID_NULL;
         if (FAILED(CoCreateInstance(CLSID_TF_ThreadMgr, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&manager))) ||
             FAILED(manager->Activate(&client))) return 1;
-        auto* service = new TextService();
-        if (FAILED(service->ActivateEx(manager.Get(), client, 0))) return 1;
         ComPtr<ITfCompartmentMgr> compartments;
         ComPtr<ITfCompartment> openClose;
         manager.As(&compartments);
         compartments->GetCompartment(GUID_COMPARTMENT_KEYBOARD_OPENCLOSE, &openClose);
-        auto automatic = [&](bool open) {
-            VARIANT value;
-            VariantInit(&value);
-            value.vt = VT_I4;
-            value.lVal = open ? 1 : 0;
-            openClose->SetValue(client, &value);
-            Pump();
-            check(service->IsOpen() == open, "automatic change reaches the real OnChange callback");
-        };
-        indicatorRequests = 0;
-        automatic(false);
-        automatic(true);
-        check(indicatorRequests == 0, "application-driven close/open does not request an indicator");
-        SetFocus(password);
-        automatic(false);
-        check(indicatorRequests == 0, "password-field entry and automatic close do not request an indicator");
-        SetFocus(normal);
-        automatic(true);
-        check(indicatorRequests == 0, "password-field exit and automatic open do not request an indicator");
-        for (int i = 1; i <= 5; ++i) {
-            service->ToggleInputMode(nullptr);
-            Pump();
-            check(indicatorRequests == i, "explicit toggle requests exactly one final indicator");
+        for (bool enabled : {false, true}) {
+            indicatorEnabled = enabled;
+            auto* service = new TextService();
+            const int appliedBefore = helloApplied;
+            if (FAILED(service->ActivateEx(manager.Get(), client, 0))) return 1;
+            // hello は別スレッドで取得し、タイマーで所有スレッドへ反映する。
+            // 通信が返っただけで切り替えを始めず、設定の反映完了までメッセージを処理する。
+            const ULONGLONG deadline = GetTickCount64() + 3000;
+            while (helloApplied == appliedBefore && GetTickCount64() < deadline) {
+                Pump();
+                Sleep(10);
+            }
+            check(helloApplied > appliedBefore, "hello settings are applied before testing mode switches");
+            std::printf("modeIndicator=%s\n", enabled ? "ON" : "OFF");
+            auto automatic = [&](bool open) {
+                VARIANT value;
+                VariantInit(&value);
+                value.vt = VT_I4;
+                value.lVal = open ? 1 : 0;
+                openClose->SetValue(client, &value);
+                Pump();
+                check(service->IsOpen() == open, "automatic change reaches the real OnChange callback");
+            };
+            indicatorRequests = 0;
+            automatic(false);
+            automatic(true);
+            check(indicatorRequests == 0, "application-driven close/open does not request an indicator");
+            SetFocus(password);
+            automatic(false);
+            check(indicatorRequests == 0, "password-field entry and automatic close do not request an indicator");
+            SetFocus(normal);
+            automatic(true);
+            check(indicatorRequests == 0, "password-field exit and automatic open do not request an indicator");
+            for (int i = 1; i <= 5; ++i) {
+                const bool wasOpen = service->IsOpen();
+                service->ToggleInputMode(nullptr);
+                Pump();
+                check(service->IsOpen() != wasOpen, "explicit toggle changes input mode even when indicator is disabled");
+                check(indicatorRequests == (enabled ? i : 0), enabled
+                    ? "enabled indicator requests exactly one final indicator per toggle"
+                    : "disabled indicator sends no request on explicit toggles");
+            }
+            service->Deactivate();
+            service->Release();
         }
-        service->Deactivate();
-        service->Release();
         manager->Deactivate();
     }
     DestroyWindow(window);

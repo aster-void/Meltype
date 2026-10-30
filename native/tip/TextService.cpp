@@ -650,7 +650,8 @@ STDMETHODIMP TextService::OnChange(REFGUID guid) {
 }
 
 void TextService::FlashModeIndicator(ITfContext* context) {
-    if (disabled_ || deactivated_) return;
+    // 設定が OFF なら、カーソル位置の取得も Meltype.exe への問い合わせもしない。
+    if (disabled_ || deactivated_ || !modeIndicator_) return;
     // バックグラウンドの入力スレッドがモードを変えても、前面の入力欄に表示しない。
     DWORD process = 0;
     GetWindowThreadProcessId(GetForegroundWindow(), &process);
@@ -822,6 +823,7 @@ void TextService::ApplyHello(const JsonValue& reply, bool currentState) {
         directDetection_ = serverActive_ && reply[L"directDetection"].Bool();
         codeApp_ = serverActive_ && reply[L"code"].Bool();
         fullWidthSpace_ = serverActive_ && reply[L"fullWidthSpace"].Bool();
+        modeIndicator_ = serverActive_ && reply[L"modeIndicator"].Bool();
     }
     if (serverStateKnown_) shortcutsEnabled_ = serverActive_;
     // 入力応答にはキー一覧が含まれないので、状態が更新済みでも一覧はこの応答から取得する。
@@ -1186,6 +1188,7 @@ void TextService::HandleKey(ITfContext* context, UINT vk, wchar_t ch, bool toggl
         directDetection_ = serverActive_ && reply[L"directDetection"].Bool();
         directEnglishWord_ = directDetection_ && reply[L"directEnglishWord"].Bool();
         fullWidthSpace_ = serverActive_ && reply[L"fullWidthSpace"].Bool();
+        modeIndicator_ = serverActive_ && reply[L"modeIndicator"].Bool();
         switchToJapanese = reply[L"switchToJapanese"].Bool();
         consumed_ = reply[L"consumed"].Bool();
         ApplyMode(reply);
