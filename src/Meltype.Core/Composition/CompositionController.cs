@@ -11,6 +11,15 @@ namespace Meltype.Composition;
 
 /// <summary>
 /// 変換ボックスに表示する内容。変換中は文節ごとの文字列 (Clauses) と選択中の文節、その文節の候補を持つ。
+/// <para>
+/// Committed は、この表示を確定したときに文書へ入る文字列。IBus はフォーカスが外れたとき
+/// 「表示中の preedit」をそのまま確定するので、表示と確定が違うと文書と本体の認識がずれる
+/// (「かn」を表示したまま確定すると、本体は「かん」で確定していて食い違う)。
+/// </para>
+/// <para>
+/// ContextHint は入力内容や変換エンジンに応じた案内 (手動の英字提案・予測候補の選択など)。固定の操作一覧は含めない。
+/// 書き間違いの修正は Suggestion に入れる。案内が無ければ null。
+/// </para>
 /// </summary>
 public sealed record CompositionView(
     string Text,
@@ -26,12 +35,8 @@ public sealed record CompositionView(
     IReadOnlyList<string>? Predictions = null,
     int SelectedPrediction = -1,
     string? Typed = null,
-    /// <summary>
-    /// この表示を確定したときに文書へ入る文字列。IBus はフォーカスが外れたとき
-    /// 「表示中の preedit」をそのまま確定するので、表示と確定が違うと文書と本体の認識がずれる
-    /// (「かn」を表示したまま確定すると、本体は「かん」で確定していて食い違う)。
-    /// </summary>
-    string? Committed = null);
+    string? Committed = null,
+    string? ContextHint = null);
 
 /// <summary>CompositionController が外界とやり取りする口。テストでは偽物に差し替える。</summary>
 public interface ICompositionHost
@@ -3098,35 +3103,42 @@ public sealed class CompositionController
             // 選んでいる文節は、最初から候補の一覧をすべて出す (Space を 1 回押しただけでは一部しか出ず、選び間違えやすかった)。
             if (!selected.Expanded) Expand(selected);
             // 出している文節に Zenzai の答えがあれば、説明の頭に「Zenzai」と出す (学習・選び直しで変わった文節は数えない。issue #1152)
-            var zenzai = _clauses.Any(c => c.ZenzaiText is { } z && c.Text == z) ? "Zenzai · " : "";
+            var zenzai = _clauses.Any(c => c.ZenzaiText is { } z && c.Text == z);
             _host.Show(new CompositionView(
                 string.Concat(_clauses.Select(c => c.Text)),
                 selected.Candidates,
                 selected.Index,
                 true,
-                zenzai + "←→ 文節　Space/↓ 候補　1〜9 選択　Shift+←→ 区切り　Enter 確定　Esc 戻る",
+                (zenzai ? "Zenzai · " : "") + "←→ 文節　Space/↓ 候補　1〜9 選択　Shift+←→ 区切り　Enter 確定　Esc 戻る",
                 _clauses.Select(c => c.Text).ToList(),
                 _selectedClause,
                 CandidateNotes(selected),
                 _options.CandidateMeanings() ? CandidateMeaning(selected) : null,
                 MisspellingSuggestion(),
                 Typed: TypedKeys(),
-                Committed: string.Concat(_clauses.Select(c => c.Text))));
+                Committed: string.Concat(_clauses.Select(c => c.Text)), ContextHint: zenzai ? "Zenzai" : null));
         }
         else
         {
             var hint = _text.IsAlphanumeric ? "Enter 確定　Space 確定+空白　Shift+Space 日本語で変換　半角/全角 日本語に" : (_options.TabConversion() ? "Space/Tab 変換" : "Space 変換") + "　←→ 文節　Enter 確定　F7 カタカナ　F10 英字";
-            if (_text.Suggestion() is { } suggestion) hint = $"Tab → {suggestion} (英字に)　" + hint;
+            var suggestion = _text.Suggestion();
+            var contextHint = suggestion is null ? null : $"Tab → {suggestion} (英字に)";
+            if (contextHint is not null) hint = contextHint + "　" + hint;
             var misspelling = MisspellingSuggestion();
-            UpdatePredictions(blocked: misspelling is not null || _text.Suggestion() is not null);
-            if (_predictions.Count > 0) hint = "Tab 予測の候補を選ぶ　" + hint;
+            // 手動の英字提案・訂正提案がある間は予測を出さないため、contextHint の両方の案内は同時に出ない。
+            UpdatePredictions(blocked: misspelling is not null || suggestion is not null);
+            if (_predictions.Count > 0)
+            {
+                contextHint = "Tab 予測の候補を選ぶ";
+                hint = contextHint + "　" + hint;
+            }
             var selected = _predictionIndex >= 0 ? _predictions[_predictionIndex].Before + _predictions[_predictionIndex].Text : null;
             var display = selected ?? CurrentDisplay(final: false);
             // 設定「入力中も変換候補をいくつか表示」: Space の前から候補を出す (issue #666)
             var preview = selected is null && misspelling is null ? TypingCandidates() : null;
             _host.Show(new CompositionView(display, preview ?? [], preview?.IndexOf(display) ?? -1, false, hint, Suggestion: misspelling,
                 Predictions: _predictions.Count > 0 ? _predictions.Select(p => p.Text).ToList() : null, SelectedPrediction: _predictionIndex, Typed: TypedKeys(),
-                Committed: selected ?? CurrentDisplay(final: true)));
+                Committed: selected ?? CurrentDisplay(final: true), ContextHint: contextHint));
         }
     }
 
