@@ -371,6 +371,9 @@ public sealed class CompositionController
         /// <summary>ユーザーが候補を選び直したか (通常の文節は確定時に学習する。括弧専用文節は除外)。</summary>
         public bool Changed { get; set; }
 
+        /// <summary>変換エンジンが返したときの Zenzai の答え (Zenzai の答えでなければ null)。今の文字列がこれと同じなら「Zenzai」と出す。</summary>
+        public string? ZenzaiText { get; init; }
+
         /// <summary>外部変換エンジンの候補追加が完了したか。括弧専用文節では追加せずに完了扱いにする。</summary>
         public bool Expanded { get; set; }
 
@@ -1968,7 +1971,10 @@ public sealed class CompositionController
             parts = [new ConversionClause(kana, string.Concat(parts.Select(p => p.Text)))];
         }
         parts = JoinDateTime(JoinSmallKana(parts));
-        var clauses = parts.Select(p => new Clause(p.Reading, false, JapaneseCandidates(p.Reading, NormalizeHalfWidth(p.Text, p.Reading)))).ToList();
+        var clauses = parts.Select(p => new Clause(p.Reading, false, JapaneseCandidates(p.Reading, NormalizeHalfWidth(p.Text, p.Reading)))
+        {
+            ZenzaiText = p.Zenzai ? NormalizeHalfWidth(p.Text, p.Reading) : null,
+        }).ToList();
         for (var i = 0; i < clauses.Count; i++)
         {
             var others = string.Concat(clauses.Where((_, k) => k != i).Select(c => c.Text));
@@ -3091,12 +3097,14 @@ public sealed class CompositionController
             var selected = _clauses[_selectedClause];
             // 選んでいる文節は、最初から候補の一覧をすべて出す (Space を 1 回押しただけでは一部しか出ず、選び間違えやすかった)。
             if (!selected.Expanded) Expand(selected);
+            // 出している文節に Zenzai の答えがあれば、説明の頭に「Zenzai」と出す (学習・選び直しで変わった文節は数えない。issue #1152)
+            var zenzai = _clauses.Any(c => c.ZenzaiText is { } z && c.Text == z) ? "Zenzai · " : "";
             _host.Show(new CompositionView(
                 string.Concat(_clauses.Select(c => c.Text)),
                 selected.Candidates,
                 selected.Index,
                 true,
-                "←→ 文節　Space/↓ 候補　1〜9 選択　Shift+←→ 区切り　Enter 確定　Esc 戻る",
+                zenzai + "←→ 文節　Space/↓ 候補　1〜9 選択　Shift+←→ 区切り　Enter 確定　Esc 戻る",
                 _clauses.Select(c => c.Text).ToList(),
                 _selectedClause,
                 CandidateNotes(selected),
