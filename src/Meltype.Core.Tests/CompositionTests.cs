@@ -23,6 +23,7 @@ internal static class CompositionTests
             "たんい" => "単位",
             "な～～～" => "名～～～",
             "かんたん" => "簡単",
+            "みぢか" => "身近",
             _ => null,
         };
 
@@ -565,6 +566,28 @@ internal static class CompositionTests
         normal.Host.PrecedingText = "I want ";
         normal.Type("made ");
         Assert.Equal("made ", normal.Host.Document);
+    }
+
+    [Test]
+    public static void Issue1122_EnglishAndJapaneseReadingsAreBothCandidates()
+    {
+        // midika は 身近 とも midi|か とも読める。日本語の候補と、英単語で区切った候補の両方を出す
+        var k = new Keyboard();
+        k.Type("midika");
+        Assert.Equal("みぢか", k.Showing);
+        k.Press(VirtualKeys.Space);
+        Assert.Equal("身近", k.Host.View!.Candidates[0], string.Join(" ", k.Host.View!.Candidates));
+        Assert.True(k.Host.View!.Candidates.Contains("midiか"), string.Join(" ", k.Host.View!.Candidates));
+
+        // みぢか に続く形 (midi|かくにん・midi|かも) も、かなで見えたまま Space で英単語で区切った形を選べる
+        foreach (var (typed, kana, split) in new[] { ("midikakuninn", "みぢかくにん", "midiかくにん"), ("midikamo", "みぢかも", "midiかも") })
+        {
+            var j = new Keyboard();
+            j.Type(typed);
+            Assert.Equal(kana, j.Showing);
+            j.Press(VirtualKeys.Space);
+            Assert.True(j.Host.View!.Candidates.Contains(split), $"「{typed}」: " + string.Join(" ", j.Host.View!.Candidates));
+        }
     }
 
     [Test]
@@ -1635,6 +1658,62 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void ReadableEnglishWords_DoNotSwallowJapanese()
+    {
+        // 英単語と同じ綴りの日本語 (mite = 見て、kite = 来て) が、英単語の辞書・スペルチェッカーの語より日本語として読まれる
+        Detector.SpellChecker = Detection.BuiltInWordChecker.Shared;
+        try
+        {
+            var cases = new Dictionary<string, string>
+            {
+                ["mitemite"] = "みてみて",
+                ["mitekudasai"] = "みてください",
+                ["kitekudasai"] = "きてください",
+                ["kitemo"] = "きても",
+                ["kitekara"] = "きてから",
+                ["mitemiru"] = "みてみる",
+                ["kitekure"] = "きてくれ",
+                ["here"] = "here",
+                ["hero"] = "hero",
+                ["I fly a kite"] = "I fly a kite",
+            };
+            foreach (var (typed, expected) in cases)
+            {
+                var k = new Keyboard();
+                k.Type(typed + "\n");
+                Assert.Equal(expected, k.Host.Document, $"「{typed}」");
+            }
+        }
+        finally
+        {
+            Detector.SpellChecker = null;
+        }
+    }
+
+    [Test]
+    public static void EnglishWord_StaysBeforeWordStartingWithParticleKana()
+    {
+        // カタカナ語の読みもある英単語 (java = じゃゔぁ) の後ろで、助詞と同じかなで始まる語 (のこ・でかく) が続いても、英単語のまま
+        // 2 文字の英単語 (so・ma・in・an) の後ろは日本語のまま
+        foreach (var (typed, expected) in new[]
+        {
+            ("javanoko", "javaのこ"), ("javadekaku", "javaでかく"), ("pythonnokoto", "pythonのこと"),
+            ("sodesuka", "そですか"), ("manonaka", "まのなか"), ("inochi", "いのち"), ("anone", "あのね"),
+        })
+        {
+            var k = new Keyboard();
+            k.Type(typed + "\n");
+            Assert.Equal(expected, k.Host.Document, $"「{typed}」");
+        }
+        // 打っている途中に javaの から じゃゔぁのこ に変わらない
+        var typing = new Keyboard();
+        typing.Type("javano");
+        Assert.Equal("javaの", typing.Showing);
+        typing.Type("ko");
+        Assert.Equal("javaのこ", typing.Showing);
+    }
+
+    [Test]
     public static void Context_FromTextBeforeCaret()
     {
         // 直前に確定済みの文字 (入力欄から読む) が英語なら英語、日本語なら日本語。
@@ -2640,6 +2719,21 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void Laughter_IsShownAsWWhileTyping()
+    {
+        // 打っている途中も、確定と同じく笑いの w で見せる (くさっっw と見せて、確定で くさwww になっていた)
+        var k = new Keyboard();
+        k.Type("kusawww");
+        Assert.Equal("くさwww", k.Showing);
+        k.Type("\n");
+        Assert.Equal("くさwww", k.Host.Document);
+        // w の後ろに母音を打てば っ (wwa = っわ)
+        var sokuon = new Keyboard();
+        sokuon.Type("kawwa");
+        Assert.Equal("かっわ", sokuon.Showing);
+    }
+
+    [Test]
     public static void Issue491_LearningCanBeSeparatedByContext()
     {
         var memory = new LanguageMemory(null) { ContextSensitive = true };
@@ -3452,6 +3546,36 @@ internal static class CompositionTests
             // 拡張子・ドメインの後ろの助詞からは日本語
             ["MeltypeTip.dllwokesu"] = "MeltypeTip.dllをけす", ["setup.exewojikkou"] = "setup.exeをじっこう", ["github.comnipush"] = "github.comにpush",
             ["tetr.iode"] = "tetr.ioで", ["google.comdekensaku"] = "google.comでけんさく",
+            // 日本語の語と同じ綴りの固有名詞 (Wakatte) のドメインは、小文字で打っても英字
+            ["wakatte.tv"] = "wakatte.tv",
+            ["wakatte.tvdemiru"] = "wakatte.tvでみる",
+            ["wakatte."] = "わかって。",
+            // 版の番号のプレリリースの名前は英字。x.y.z でない数字の後ろの - は のばす音
+            ["ver1.4.1-pre.1"] = "ver1.4.1-pre.1",
+            ["v1.10.0-rc.1"] = "v1.10.0-rc.1",
+            ["1.4.1-beta"] = "1.4.1-beta",
+            ["ver1.4.1-pre.1wodashita"] = "ver1.4.1-pre.1をだした",
+            ["1.5-desu"] = "1.5ーです",
+            // 名前の後ろの日本語。決まった名前でない語 (desu) は のばす音 + 日本語
+            ["ver1.4.1-prewodashita"] = "ver1.4.1-preをだした",
+            ["v1.2.3-alphawotameshita"] = "v1.2.3-alphaをためした",
+            ["v1.2.3-rcnitsuite"] = "v1.2.3-rcについて",
+            ["v1.2.3-alpha.2wodashita"] = "v1.2.3-alpha.2をだした",
+            ["v1.2.3-preview"] = "v1.2.3-preview",
+            ["v1.2.3-desu"] = "v1.2.3ーです",
+            // 読めない拡張子の後ろの、(助詞 +) 3 音以上の日本語の語からは日本語
+            [".envfairu"] = ".envふぁいる",
+            [".zshrcnosettei"] = ".zshrcのせってい",
+            [".gitignorefairu"] = ".gitignoreふぁいる",
+            ["MeltypeTip.dllfairu"] = "MeltypeTip.dllふぁいる",
+            [".jsonwoyomu"] = ".jsonをよむ",
+            // 句点の後ろの、ドメインと同じ綴りで始まる日本語 (。では・。でも)。前が長い文ほど日本語 (issue #1332)
+            ["ryoukaidesu.deha"] = "りょうかいです。では",
+            ["arigatougozaimasu.dehaonegaishimasu"] = "ありがとうございます。ではおねがいします",
+            ["junbigadekita.dehashuppatsushiyou"] = "じゅんびができた。ではしゅっぱつしよう",
+            ["kyouhaame.demo"] = "きょうはあめ。でも",
+            ["hoge.io"] = "hoge.io",
+            ["hogehoge.io"] = "hogehoge.io",
         };
         foreach (var (typed, expected) in cases)
         {
