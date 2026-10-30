@@ -233,11 +233,25 @@ internal static class ZenzaiConverterTests
         using var zenzai = new ZenzaiConverter(server.Endpoint, timeoutMs: 5000);
         var useZenzai = true;
         var hybrid = new HybridConverter(() => ConversionEngine.Mozc, null, new CompositionTests.FakeConverter(), null, () => useZenzai ? zenzai : null);
-        hybrid.ConvertClauses("たんいをとる");
-        Assert.True(hybrid.LastUsedZenzai, "Zenzai が答えた");
+        Assert.True(hybrid.ConvertClauses("たんいをとる") is { } z && z.All(c => c.Zenzai), "Zenzai の答えの文節に印を付ける");
+        // 変換ボックスの説明の行に出す。Zenzai の答えを出しているときだけ
+        var k = new CompositionTests.Keyboard(converter: hybrid);
+        k.Type("tanniwotoru ");
+        Assert.True(k.Host.View!.Hint.StartsWith("Zenzai", StringComparison.Ordinal), k.Host.View.Hint);
         useZenzai = false;
-        hybrid.ConvertClauses("たんいをとる");
-        Assert.True(!hybrid.LastUsedZenzai, "Zenzai を使わなければ false");
+        Assert.True(hybrid.ConvertClauses("たんいをとる") is { } m && !m.Any(c => c.Zenzai), "Zenzai を使わなければ印を付けない");
+        var mozc = new CompositionTests.Keyboard(converter: hybrid);
+        mozc.Type("tanniwotoru ");
+        Assert.True(!mozc.Host.View!.Hint.Contains("Zenzai", StringComparison.Ordinal), "Zenzai の答えでなければ出さない: " + mozc.Host.View.Hint);
+        // 学習した変換で Zenzai の答えと違う文字列にした文節は数えない
+        useZenzai = true;
+        var history = new ConversionHistory(null);
+        history.Remember("とる", "採る");
+        history.Remember("たんいを", "単位お");
+        var learned = new CompositionTests.Keyboard(converter: hybrid, history: history);
+        learned.Type("tanniwotoru ");
+        Assert.Equal("単位お採る", learned.Showing ?? "", "学習した変換を出す");
+        Assert.True(!learned.Host.View!.Hint.Contains("Zenzai", StringComparison.Ordinal), "学習で変わった文節には出さない: " + learned.Host.View.Hint);
 
         using var holder = new ZenzaiHolder((s, m) => new ZenzaiConverter(server.Endpoint, timeoutMs: 5000));
         Assert.True(holder.Status is null, "OFF・まだ使っていなければ出さない");
