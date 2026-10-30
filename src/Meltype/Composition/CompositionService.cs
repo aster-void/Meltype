@@ -649,8 +649,13 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     /// <summary>変換ボックスを出したまま確定した文字 (次に見せるときに、その幅だけ変換ボックスを右へずらす)。</summary>
     private string _committedWhileVisible = "";
 
+    /// <summary>Zenzai の今の状態 (トレイのメニューに出す)。OFF なら null。</summary>
+    public string? ZenzaiStatus(bool useZenzai) => !useZenzai ? null : _zenzai.Status ?? "まだ起動していません (日本語を変換すると起動します)";
+
     public void Show(CompositionView view)
     {
+        // 出している変換が Zenzai の答えなら、下の説明の行の頭に「Zenzai」と出す (issue #1152)
+        if (view.Converting && _hybrid.LastUsedZenzai) view = view with { Hint = "Zenzai · " + view.Hint };
         if (_window.Visible)
         {
             // Windows の検索の画面の横に出しているときは、確定しても動かさない。左なら右の端を、上なら下の端をそろえる (広がっても検索の画面の裏に入らないように)

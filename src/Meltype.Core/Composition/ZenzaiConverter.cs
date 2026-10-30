@@ -83,6 +83,12 @@ public sealed class ZenzaiConverter : IKanjiConverter, IDisposable
     /// <summary>何度も失敗して諦めたか (起動しない・答えない)。ファイルは見ない (ZenzaiHolder が変換のたびに見る)。</summary>
     public bool GaveUp => _failures >= 3;
 
+    /// <summary>llama-server が起動して、変換を頼めるか (起動中は false)。</summary>
+    public bool IsReady { get { lock (_gate) return _ready; } }
+
+    /// <summary>応答が遅かったので、しばらく使わずに休んでいるか。</summary>
+    public bool IsResting => Environment.TickCount64 < Interlocked.Read(ref _pausedUntil);
+
     /// <summary>一度でも答えたか (ZenzaiHolder が、使えていたあとの失敗を一時的なものと見るのに使う)。</summary>
     public bool HasAnswered { get; private set; }
 

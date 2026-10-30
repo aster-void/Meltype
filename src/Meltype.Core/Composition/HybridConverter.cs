@@ -28,11 +28,14 @@ public sealed class HybridConverter(Func<ConversionEngine> engine, MozcConverter
     private IReadOnlyList<ConversionClause>? Zenzai(string hiragana, string? context)
     {
         ZenzaiConverter? z = null;
+        LastUsedZenzai = false;
         try
         {
             z = zenzai?.Invoke();
             if (z is null || ReferenceEquals(z, _failedZenzai) || !z.IsAvailable) return null;
-            return z.ConvertClauses(hiragana, WideContext ?? context);
+            var clauses = z.ConvertClauses(hiragana, WideContext ?? context);
+            LastUsedZenzai = clauses is { Count: > 0 };
+            return clauses;
         }
         catch (Exception ex)
         {
@@ -48,6 +51,9 @@ public sealed class HybridConverter(Func<ConversionEngine> engine, MozcConverter
     // (このときはログを 1 回にするだけ。Windows 版では ZenzaiHolder が作れなかったことを覚えて待つので、ここまで例外は来ない)
     private object? _failedZenzai;
     private static readonly object CouldNotCreate = new();
+
+    /// <summary>最後の変換で Zenzai が答えたか (変換ボックスに「Zenzai」と出す。issue #1152)。Zenzai の答えが Mozc などと同じでも true。</summary>
+    public bool LastUsedZenzai { get; private set; }
 
     private bool UseMozc => engine() != ConversionEngine.System && mozc is { IsAvailable: true };
     private bool UseSystem => engine() != ConversionEngine.Mozc || mozc is not { IsAvailable: true };

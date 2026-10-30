@@ -226,6 +226,31 @@ internal static class ZenzaiConverterTests
     }
 
     [Test]
+    public static void Issue1152_ShowsWhetherZenzaiAnswered()
+    {
+        // #1152: Zenzai が答えたかを、変換ボックスとトレイに出す
+        using var server = new FakeServer { Answer = _ => "単位を取る" };
+        using var zenzai = new ZenzaiConverter(server.Endpoint, timeoutMs: 5000);
+        var useZenzai = true;
+        var hybrid = new HybridConverter(() => ConversionEngine.Mozc, null, new CompositionTests.FakeConverter(), null, () => useZenzai ? zenzai : null);
+        hybrid.ConvertClauses("たんいをとる");
+        Assert.True(hybrid.LastUsedZenzai, "Zenzai が答えた");
+        useZenzai = false;
+        hybrid.ConvertClauses("たんいをとる");
+        Assert.True(!hybrid.LastUsedZenzai, "Zenzai を使わなければ false");
+
+        using var holder = new ZenzaiHolder((s, m) => new ZenzaiConverter(server.Endpoint, timeoutMs: 5000));
+        Assert.True(holder.Status is null, "OFF・まだ使っていなければ出さない");
+        holder.Get("server", "model");
+        Assert.Equal("使えます", holder.Status ?? "");
+        using var missing = new ZenzaiHolder();
+        missing.Get("/no/such/llama-server", "/no/such.gguf");
+        Assert.Equal("llama-server かモデルが見つかりません", missing.Status ?? "");
+        holder.Get("", "");
+        Assert.True(holder.Status is null, "OFF にしたら出さない");
+    }
+
+    [Test]
     public static void Hybrid_ZenzaiThatCannotBeCreated_FallsBackToOtherEngine()
     {
         // #973: 同梱の .NET に System.Net.Http が無く、Zenzai を作るたびに例外になった。例外が入力まで届き、日本語を打てなくなった
