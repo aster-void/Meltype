@@ -288,6 +288,40 @@ internal static class ZenzaiConverterTests
     }
 
     [Test]
+    public static void Issue1307_ServerArguments_PassGpuLayersAndDevice()
+    {
+        // 既定 (0・空) は今までと同じ引数 (CPU だけ。--device は渡さない)
+        var cpu = ZenzaiConverter.ServerArguments("model.gguf", 8080, 0, "");
+        Assert.Equal("0", cpu[cpu.IndexOf("-ngl") + 1]);
+        Assert.True(!cpu.Contains("--device"), string.Join(" ", cpu));
+        var gpu = ZenzaiConverter.ServerArguments("model.gguf", 8080, 99, " Vulkan0 ");
+        Assert.Equal("99", gpu[gpu.IndexOf("-ngl") + 1]);
+        Assert.Equal("Vulkan0", gpu[gpu.IndexOf("--device") + 1]);
+        Assert.True(gpu.Contains("--override-kv"), "zenz の前処理の差し替えは残す");
+        // config.json に書いた範囲外の値・空白は直す
+        var settings = new Meltype.Config.Settings { ZenzaiGpuLayers = -5, ZenzaiDevice = "  " }.Normalize();
+        Assert.Equal(0, settings.ZenzaiGpuLayers);
+        Assert.Equal("", settings.ZenzaiDevice);
+    }
+
+    [Test]
+    public static void Issue1307_Holder_RecreatesWhenGpuSettingsChange()
+    {
+        var created = 0;
+        using var server = new FakeServer();
+        using var holder = new ZenzaiHolder((s, m) => { created++; return new ZenzaiConverter(server.Endpoint, timeoutMs: 5000); });
+        holder.Get("server", "model");
+        holder.Get("server", "model", 0, "");
+        Assert.Equal(1, created, "既定のままなら作り直さない");
+        holder.Get("server", "model", 99, "");
+        Assert.Equal(2, created, "GPU に載せる層の数を変えたら作り直す");
+        holder.Get("server", "model", 99, "Vulkan0");
+        Assert.Equal(3, created, "使う GPU を変えたら作り直す");
+        holder.Get("server", "model", 99, " Vulkan0 ");
+        Assert.Equal(3, created, "前後の空白だけの違いでは作り直さない");
+    }
+
+    [Test]
     public static void Holder_ZenzaiThatGaveUp_IsRecreatedAfterAWhile()
     {
         // llama-server が落ちたなどで 3 回続けて答えないと、ZenzaiConverter は諦める (例外にはならない)。それも作り直す

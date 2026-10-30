@@ -115,6 +115,9 @@ public sealed record CompositionOptions
     public Func<bool> UseZenzai { get; init; } = () => false;
     public Func<string> ZenzaiServerPath { get; init; } = () => "";
     public Func<string> ZenzaiModelPath { get; init; } = () => "";
+    /// <summary>llama-server の -ngl (GPU に載せる層の数。0 なら CPU だけ) と --device (使う GPU。空なら渡さない)。</summary>
+    public Func<int> ZenzaiGpuLayers { get; init; } = () => 0;
+    public Func<string> ZenzaiDevice { get; init; } = () => "";
 
     /// <summary>英数 (直接入力) 状態か。</summary>
     public Func<bool> DirectMode { get; init; } = () => false;

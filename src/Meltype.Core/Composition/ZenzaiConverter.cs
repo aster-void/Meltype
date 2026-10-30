@@ -39,6 +39,8 @@ public sealed class ZenzaiConverter : IKanjiConverter, IDisposable
 
     private readonly string _serverPath;
     private readonly string _modelPath;
+    private readonly int _gpuLayers;
+    private readonly string _device;
     private readonly int _timeoutMs;
     private readonly Uri? _fixedEndpoint;
     private readonly object _gate = new();
@@ -59,11 +61,26 @@ public sealed class ZenzaiConverter : IKanjiConverter, IDisposable
     /// <param name="serverPath">llama-server の実行ファイル。</param>
     /// <param name="modelPath">zenz の GGUF ファイル。</param>
     /// <param name="timeoutMs">1 回の変換を待つ時間。</param>
-    public ZenzaiConverter(string serverPath, string modelPath, int timeoutMs = 400)
+    /// <param name="gpuLayers">GPU に載せる層の数 (llama-server の -ngl)。0 なら CPU だけ。</param>
+    /// <param name="device">使う GPU (llama-server の --device)。空なら渡さない。</param>
+    public ZenzaiConverter(string serverPath, string modelPath, int timeoutMs = 400, int gpuLayers = 0, string device = "")
     {
         _serverPath = serverPath;
         _modelPath = modelPath;
         _timeoutMs = timeoutMs;
+        _gpuLayers = gpuLayers;
+        _device = device;
+    }
+
+    /// <summary>llama-server に渡す引数 (issue #1307: GPU に載せる層の数と使う GPU)。</summary>
+    internal static List<string> ServerArguments(string modelPath, int port, int gpuLayers, string device)
+    {
+        var arguments = new List<string> { "-m", modelPath, "--host", "127.0.0.1", "--port", port.ToString(CultureInfo.InvariantCulture), "-c", "1024",
+            "-ngl", Math.Max(0, gpuLayers).ToString(CultureInfo.InvariantCulture), "--parallel", "1",
+            // zenz の前処理 (gpt2-small-japanese-char) は本家の llama.cpp に無く、読み込めない。gpt-2 に差し替えると本家でも動く (#849 で Serugu さんが確かめた)
+            "--override-kv", "tokenizer.ggml.pre=str:gpt-2" };
+        if (device.Trim() is { Length: > 0 } name) arguments.AddRange(["--device", name]);
+        return arguments;
     }
 
     /// <summary>すでに動いている llama-server を使う (テスト用)。</summary>
@@ -201,9 +218,7 @@ public sealed class ZenzaiConverter : IKanjiConverter, IDisposable
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            foreach (var argument in new[] { "-m", _modelPath, "--host", "127.0.0.1", "--port", port.ToString(CultureInfo.InvariantCulture), "-c", "1024", "-ngl", "0", "--parallel", "1",
-                // zenz の前処理 (gpt2-small-japanese-char) は本家の llama.cpp に無く、読み込めない。gpt-2 に差し替えると本家でも動く (#849 で Serugu さんが確かめた)
-                "--override-kv", "tokenizer.ggml.pre=str:gpt-2" })
+            foreach (var argument in ServerArguments(_modelPath, port, _gpuLayers, _device))
                 info.ArgumentList.Add(argument);
             KillStaleServer();
             var process = Process.Start(info);

@@ -370,6 +370,14 @@ public sealed class Settings
      Description("zenz のモデルファイル (例: zenz-v3.1-small の ggml-model-Q5_K_M.gguf) の場所。「Zenzai を使う」が ON のときに使います。")]
     public string ZenzaiModelPath { get; set; } = "";
 
+    [Category("1. 全般"), DisplayName("Zenzai: GPU に載せる層の数"),
+     Description("llama-server の -ngl に渡す数。0 なら CPU だけで計算します (既定)。GPU 版 (Vulkan・CUDA) の llama-server を指定したときに、99 などにすると GPU で計算します。変えると llama-server を起動し直します。")]
+    public int ZenzaiGpuLayers { get; set; }
+
+    [Category("1. 全般"), DisplayName("Zenzai: 使う GPU"),
+     Description("llama-server の --device に渡す名前 (例: Vulkan0)。空なら渡さず、llama-server に任せます (既定)。名前は llama-server --list-devices で確かめられます。変えると llama-server を起動し直します。")]
+    public string ZenzaiDevice { get; set; } = "";
+
     [Category("1. 全般"), DisplayName("英訳の候補"),
      Description("変換の候補の後ろに英訳も出します (複雑な → complex, complicated)。JMdict のよく使う語から。選んだ英訳は少しずつ前に出ます。")]
     public bool TranslationCandidates { get; set; } = true;
@@ -969,6 +977,8 @@ public sealed class Settings
         JapaneseThreshold = Math.Clamp(JapaneseThreshold, 2, 20);
         MaxPendingKeys = Math.Clamp(MaxPendingKeys, 2, 12);
         ImeTimeoutMs = Math.Clamp(ImeTimeoutMs, 50, 2000);
+        ZenzaiGpuLayers = Math.Clamp(ZenzaiGpuLayers, 0, 999);
+        ZenzaiDevice = ZenzaiDevice?.Trim() ?? "";
         // 数値で書いた config.json の、今は無い番号 (消した IME 自動切替・両方を判定) は初期値にする
         if (!Enum.IsDefined(Mode)) Mode = InputMode.Tsf;
         if (!Enum.IsDefined(InputStyle)) InputStyle = InputStyle.Romaji;
