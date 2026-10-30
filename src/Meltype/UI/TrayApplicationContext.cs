@@ -69,7 +69,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
             UseZenzai = () => _engine.Settings.UseZenzai,
             ZenzaiServerPath = () => _engine.Settings.ZenzaiServerPath,
             ZenzaiModelPath = () => _engine.Settings.ZenzaiModelPath,
-            ZenzaiGpuLayers = () => _engine.Settings.ZenzaiGpuLayers,
             ZenzaiDevice = () => _engine.Settings.ZenzaiDevice,
             TranslationCandidates = () => _engine.Settings.TranslationCandidates,
             CandidateMeanings = () => _engine.Settings.ShowCandidateMeanings,

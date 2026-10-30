@@ -10,14 +10,11 @@ namespace Meltype.Composition;
 /// 続けて使えないときは、待つ時間を <see cref="RetryAfter"/> から倍にしていく (<see cref="MaxRetryAfter"/> まで)。
 /// 止める (Dispose) のはここだけで、使う側 (HybridConverter) は止めない。
 /// </summary>
-/// <param name="create">llama-server と GGUF の場所から作る (テストでは差し替える)。</param>
+/// <param name="create">llama-server と GGUF の場所と使う GPU から作る (テストでは差し替える)。</param>
 /// <param name="now">今の時刻 (ミリ秒。テストでは差し替える)。</param>
-public sealed class ZenzaiHolder(Func<string, string, ZenzaiConverter>? create = null, Func<long>? now = null) : IDisposable
+public sealed class ZenzaiHolder(Func<string, string, string, ZenzaiConverter>? create = null, Func<long>? now = null) : IDisposable
 {
-    private readonly Func<string, string, ZenzaiConverter>? _create = create;
-    // GPU に載せる層の数と使う GPU (llama-server の -ngl・--device。issue #1307)
-    private int _gpuLayers;
-    private string _device = "";
+    private readonly Func<string, string, string, ZenzaiConverter> _create = create ?? CreateAndWarmUp;
     private readonly Func<long> _now = now ?? (() => Environment.TickCount64);
     private ZenzaiConverter? _zenzai;
     private string _key = "";
@@ -34,7 +31,7 @@ public sealed class ZenzaiHolder(Func<string, string, ZenzaiConverter>? create =
     public TimeSpan MaxRetryAfter { get; init; } = TimeSpan.FromHours(1);
 
     /// <summary>今の Zenzai。場所が空 (OFF) なら止めて null。作れない・止めて待っている間も null (変換は Mozc などで続ける)。</summary>
-    public ZenzaiConverter? Get(string serverPath, string modelPath, int gpuLayers = 0, string device = "")
+    public ZenzaiConverter? Get(string serverPath, string modelPath, string device = "")
     {
         var server = serverPath.Trim();
         var model = modelPath.Trim();
@@ -46,13 +43,11 @@ public sealed class ZenzaiHolder(Func<string, string, ZenzaiConverter>? create =
             return null;
         }
         device = device.Trim();
-        var key = server + "|" + model + "|" + gpuLayers + "|" + device;
+        var key = server + "|" + model + "|" + device;
         if (key != _key)
         {
             Stop();
             _key = key;
-            _gpuLayers = gpuLayers;
-            _device = device;
             _retryAt = 0;
             _failures = 0;
             _loggedCreateError = false;
@@ -64,7 +59,7 @@ public sealed class ZenzaiHolder(Func<string, string, ZenzaiConverter>? create =
         {
             try
             {
-                _zenzai = _create is null ? CreateAndWarmUp(server, model, _gpuLayers, _device) : _create(server, model);
+                _zenzai = _create(server, model, device);
             }
             catch (Exception ex)
             {
@@ -110,9 +105,9 @@ public sealed class ZenzaiHolder(Func<string, string, ZenzaiConverter>? create =
         return wait;
     }
 
-    private static ZenzaiConverter CreateAndWarmUp(string server, string model, int gpuLayers, string device)
+    private static ZenzaiConverter CreateAndWarmUp(string server, string model, string device)
     {
-        var zenzai = new ZenzaiConverter(server, model, gpuLayers: gpuLayers, device: device);
+        var zenzai = new ZenzaiConverter(server, model, device: device);
         try
         {
             if (zenzai.IsInstalled) zenzai.WarmUp();

@@ -265,7 +265,7 @@ internal static class ZenzaiConverterTests
     {
         var now = 0L;
         var created = 0;
-        using var holder = new ZenzaiHolder((s, m) => { created++; throw new FileNotFoundException("Could not load file or assembly 'System.Net.Http'"); }, () => now);
+        using var holder = new ZenzaiHolder((s, m, _) => { created++; throw new FileNotFoundException("Could not load file or assembly 'System.Net.Http'"); }, () => now);
         Assert.True(holder.Get("server", "model") is null, "作れなければ null (Mozc などで変換する)");
         Assert.True(holder.Get("server", "model") is null && created == 1, "すぐには作り直さない (打つたびに例外にしない)");
         now += (long)holder.RetryAfter.TotalMilliseconds;
@@ -288,37 +288,33 @@ internal static class ZenzaiConverterTests
     }
 
     [Test]
-    public static void Issue1307_ServerArguments_PassGpuLayersAndDevice()
+    public static void Issue1307_ServerArguments_PassDevice()
     {
-        // 既定 (0・空) は今までと同じ引数 (CPU だけ。--device は渡さない)
-        var cpu = ZenzaiConverter.ServerArguments("model.gguf", 8080, 0, "");
+        // 使う GPU が空 (既定) なら、今までと同じ引数 (-ngl 0 で CPU だけ。--device は渡さない)
+        var cpu = ZenzaiConverter.ServerArguments("model.gguf", 8080, "");
         Assert.Equal("0", cpu[cpu.IndexOf("-ngl") + 1]);
         Assert.True(!cpu.Contains("--device"), string.Join(" ", cpu));
-        var gpu = ZenzaiConverter.ServerArguments("model.gguf", 8080, 99, " Vulkan0 ");
-        Assert.Equal("99", gpu[gpu.IndexOf("-ngl") + 1]);
+        // 使う GPU を書いたら --device だけを渡し、載せる層の数は llama-server に任せる (-ngl を渡さない)
+        var gpu = ZenzaiConverter.ServerArguments("model.gguf", 8080, " Vulkan0 ");
         Assert.Equal("Vulkan0", gpu[gpu.IndexOf("--device") + 1]);
+        Assert.True(!gpu.Contains("-ngl"), string.Join(" ", gpu));
         Assert.True(gpu.Contains("--override-kv"), "zenz の前処理の差し替えは残す");
-        // config.json に書いた範囲外の値・空白は直す
-        var settings = new Meltype.Config.Settings { ZenzaiGpuLayers = -5, ZenzaiDevice = "  " }.Normalize();
-        Assert.Equal(0, settings.ZenzaiGpuLayers);
-        Assert.Equal("", settings.ZenzaiDevice);
+        Assert.Equal("", new Meltype.Config.Settings { ZenzaiDevice = "  " }.Normalize().ZenzaiDevice, "空白だけなら空");
     }
 
     [Test]
-    public static void Issue1307_Holder_RecreatesWhenGpuSettingsChange()
+    public static void Issue1307_Holder_PassesDeviceAndRecreatesWhenItChanges()
     {
-        var created = 0;
+        var devices = new List<string>();
         using var server = new FakeServer();
-        using var holder = new ZenzaiHolder((s, m) => { created++; return new ZenzaiConverter(server.Endpoint, timeoutMs: 5000); });
+        using var holder = new ZenzaiHolder((s, m, device) => { devices.Add(device); return new ZenzaiConverter(server.Endpoint, timeoutMs: 5000); });
         holder.Get("server", "model");
-        holder.Get("server", "model", 0, "");
-        Assert.Equal(1, created, "既定のままなら作り直さない");
-        holder.Get("server", "model", 99, "");
-        Assert.Equal(2, created, "GPU に載せる層の数を変えたら作り直す");
-        holder.Get("server", "model", 99, "Vulkan0");
-        Assert.Equal(3, created, "使う GPU を変えたら作り直す");
-        holder.Get("server", "model", 99, " Vulkan0 ");
-        Assert.Equal(3, created, "前後の空白だけの違いでは作り直さない");
+        holder.Get("server", "model", "");
+        Assert.Equal("", string.Join(",", devices), "既定のままなら作り直さない (使う GPU は空のまま渡す)");
+        holder.Get("server", "model", "Vulkan0");
+        Assert.Equal(",Vulkan0", string.Join(",", devices), "使う GPU を変えたら、その名前で作り直す");
+        holder.Get("server", "model", " Vulkan0 ");
+        Assert.Equal(2, devices.Count, "前後の空白だけの違いでは作り直さない");
     }
 
     [Test]
@@ -328,7 +324,7 @@ internal static class ZenzaiConverterTests
         using var server = new FakeServer { Status = 500 };
         var now = 0L;
         var created = new List<ZenzaiConverter>();
-        using var holder = new ZenzaiHolder((s, m) => { var z = new ZenzaiConverter(server.Endpoint, timeoutMs: 5000); created.Add(z); return z; }, () => now);
+        using var holder = new ZenzaiHolder((s, m, _) => { var z = new ZenzaiConverter(server.Endpoint, timeoutMs: 5000); created.Add(z); return z; }, () => now);
         var first = holder.Get("server", "model")!;
         for (var i = 0; i < 3; i++) first.ConvertClauses("はし" + new string('の', i));
         Assert.True(!first.IsAvailable, "3 回答えないと ZenzaiConverter は諦める");
@@ -356,7 +352,7 @@ internal static class ZenzaiConverterTests
         using var server = new FakeServer { Answer = p => ReadingIn(p) == "はし" ? "橋" : "箸" };
         var now = 0L;
         var created = new List<ZenzaiConverter>();
-        using var holder = new ZenzaiHolder((s, m) => { var z = new ZenzaiConverter(server.Endpoint, timeoutMs: 5000); created.Add(z); return z; }, () => now);
+        using var holder = new ZenzaiHolder((s, m, _) => { var z = new ZenzaiConverter(server.Endpoint, timeoutMs: 5000); created.Add(z); return z; }, () => now);
         var first = holder.Get("server", "model");
         Assert.True(first is not null && ReferenceEquals(holder.Get("server", "model"), first), "同じ場所なら同じものを使う");
         using (var other = new ZenzaiConverter(server.Endpoint)) holder.Failed(other);
