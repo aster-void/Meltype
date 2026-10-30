@@ -120,6 +120,8 @@ public sealed record CompositionOptions
     public Func<bool> UseZenzai { get; init; } = () => false;
     public Func<string> ZenzaiServerPath { get; init; } = () => "";
     public Func<string> ZenzaiModelPath { get; init; } = () => "";
+    /// <summary>llama-server の --device (使う GPU)。空なら CPU だけで計算する。</summary>
+    public Func<string> ZenzaiDevice { get; init; } = () => "";
 
     /// <summary>英数 (直接入力) 状態か。</summary>
     public Func<bool> DirectMode { get; init; } = () => false;
