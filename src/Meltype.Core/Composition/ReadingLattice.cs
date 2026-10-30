@@ -45,6 +45,9 @@ public sealed partial class CompositionDetector
     private const double UnknownLetterCost = 1.5;
     // 入力の最後の、知っている英単語の頭 (insta)。英単語 + 日本語 1 音 (ins + た) より軽く、日本語の語より重い
     private const double EnglishPrefixCost = 2.5;
+    // ローマ字として読める知らない語 + . + ドメイン・拡張子 (hoge.io・llama.cpp) をまとめた区間は、知っている英単語の重み + . の前の 1 文字ごとにこの重み
+    // (前が長いほど、句点の後ろの日本語 junbigadekita.|deha と読む方が自然になる)
+    private const double ReadableDomainLetterCost = 0.25;
     // 知らない語の大文字 1 文字
     private const double UnknownUpperCost = 1;
     // 大文字で始まり 2 文字目が小文字の 3 文字以上の知らない語 (Tanaka・McKinsey) の小文字 1 文字
@@ -227,10 +230,11 @@ public sealed partial class CompositionDetector
 
             // 記号・数字の決まり (状態によらないもの)
             var forced = -1;
+            // ローマ字として読める語 + . + ドメイン・拡張子 (llama.cpp・hoge.io): 句点の後ろの日本語 (ryoukaidesu.|deha) と重みで比べる
+            var domain = unit >= 0 && !kanaInput && englishLevel ? ReadableStemDotSuffixEnd(units, unit, pending) : -1;
             if (unit >= 0 && !kanaInput)
             {
-                if (englishLevel) forced = ReadableStemDotSuffixEnd(units, unit, pending);
-                if (forced < 0) forced = LeadingDotfileEnd(units, unit, pending, level);
+                forced = LeadingDotfileEnd(units, unit, pending, level);
                 if (forced < 0) forced = UserNameEnd(units, unit, pending);
                 if (forced < 0 && englishLevel) forced = HyphenatedWordEnd(units, unit, pending);
                 if (forced < 0 && englishLevel) forced = NumeronymEnd(units, unit, pending);
@@ -250,6 +254,9 @@ public sealed partial class CompositionDetector
                     OfferEdge(node, state, new LatticeEdge(p, to, true, "", false, false), KnownEnglishCost);
                     continue;
                 }
+                if (domain > unit)
+                    OfferEdge(node, state, new LatticeEdge(p, domain == units.Count ? length : _preparedRawOffsets[domain], true, "", false, false),
+                        KnownEnglishCost + ReadableDomainLetterCost * (text.IndexOf('.', p) - p));
                 // 英文の中の記号 (, . ! ? -) は半角のまま
                 if (unit >= 0 && !kanaInput && IsAsciiSymbol(units[unit]) && state.PreviousEnglish && state.AllEnglish &&
                     KeepsPunctuationAfterEnglish(units, unit, pending, precedingEnglish))

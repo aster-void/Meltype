@@ -324,7 +324,7 @@ public sealed partial class CompositionDetector
 
     /// <summary>
     /// ローマ字として読める英字のすぐ後ろに、読めない拡張子が続くとき (llama.cpp → っぁま。cpp)。
-    /// 語の先頭から拡張子までを 1 つの英語区間にする。大文字や知っている英単語 (Meltype.amr) は、拡張子を別区間のままにする。
+    /// 語の先頭から拡張子までを 1 つの英語区間の候補にする (句点の後ろの日本語 ryoukaidesu.|deha とは重みで比べる)。大文字や知っている英単語 (Meltype.amr) は、拡張子を別区間のままにする。
     /// 数字の前 (3.14desu)・小数 (soudesu.1.5)・最後まで読める語 (Meltype.desu) は対象外。
     /// </summary>
     private int ReadableStemDotSuffixEnd(IReadOnlyList<CompositionUnit> units, int start, string pending)
