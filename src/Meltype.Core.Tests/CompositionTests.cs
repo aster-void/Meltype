@@ -993,7 +993,7 @@ internal static class CompositionTests
         // きょう → 今日の日付
         var today = new Keyboard(now: () => new DateTime(2026, 10, 8, 17, 22, 0));
         today.Type("kyou ");
-        foreach (var expected in new[] { "2026年10月8日", "2026年10月8日(木)", "10月8日(木)", "2026/10/08", "2026/10/08(木)", "10/8(木)", "2026-10-08", "木曜日" })
+        foreach (var expected in new[] { "2026年10月8日", "2026年10月8日(木)", "10月8日(木)", "2026/10/08", "2026/10/08(木)", "10/8(木)", "2026-10-08", "木曜日", "20261008" })
             Assert.True(today.Host.View!.Candidates.Contains(expected), string.Join(" ", today.Host.View!.Candidates));
         var other = new Keyboard(now: () => new DateTime(2026, 10, 8, 17, 22, 0));
         other.Type("imada ");
