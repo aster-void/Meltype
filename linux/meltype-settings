@@ -143,7 +143,9 @@ def main():
             self.sidebar.select_row(self.sidebar.get_row_at_index(0))
 
             # どのエディターで開くかは環境で違うので、開くボタンは置かずにパスとコピーのボタンを出す
-            message = Gtk.Label(label="変更はすぐに保存し、1 秒ほどで入力に反映します。画面に無い項目は、次のファイルを直接編集します。",
+            # 項目の対応 OS を schema に出していないので、Windows 版だけで効く項目も並ぶ
+            warning = Gtk.Label(label="Windows 版でだけ効く項目も表示しています。", xalign=0, wrap=True)
+            message = Gtk.Label(label="変更は 1 秒ほどで入力に反映します。画面に無い項目は、次のファイルを直接編集します。",
                                 xalign=0, wrap=True)
             message.add_css_class("dim-label")
             path = Gtk.Label(label=str(config.path), xalign=0, wrap=True, wrap_mode=Pango.WrapMode.CHAR, selectable=True, hexpand=True)
@@ -159,6 +161,7 @@ def main():
             path_row.append(path)
             path_row.append(copy)
             note = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin_start=12, margin_end=12, margin_top=8, margin_bottom=8)
+            note.append(warning)
             note.append(message)
             note.append(path_row)
             self.content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
