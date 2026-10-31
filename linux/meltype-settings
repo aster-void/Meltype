@@ -109,8 +109,10 @@ def read_schema(directory):
 def main():
     import gi
     gi.require_version("Gtk", "4.0")
+    gi.require_version("Gdk", "4.0")
     gi.require_version("Graphene", "1.0")
-    from gi.repository import Gio, Graphene, Gtk
+    gi.require_version("Pango", "1.0")
+    from gi.repository import Gdk, Gio, Graphene, Gtk, Pango
 
     class SettingsWindow(Gtk.ApplicationWindow):
         def __init__(self, app, schema, config):
@@ -140,11 +142,25 @@ def main():
             self.sidebar.connect("row-activated", lambda _, row: self._scroll_to(self.first_rows[row.get_index()]))
             self.sidebar.select_row(self.sidebar.get_row_at_index(0))
 
-            # どのエディターで開くかは環境で違うので、開くボタンは置かずにパスを出す (選択してコピーできる)
-            note = Gtk.Label(label=f"変更はすぐに {config.path} に保存し、1 秒ほどで入力に反映します。画面に無い項目は、このファイルを直接編集します。",
-                             xalign=0, wrap=True, selectable=True,
-                             margin_start=12, margin_end=12, margin_top=8, margin_bottom=8)
-            note.add_css_class("dim-label")
+            # どのエディターで開くかは環境で違うので、開くボタンは置かずにパスとコピーのボタンを出す
+            message = Gtk.Label(label="変更はすぐに保存し、1 秒ほどで入力に反映します。画面に無い項目は、次のファイルを直接編集します。",
+                                xalign=0, wrap=True)
+            message.add_css_class("dim-label")
+            path = Gtk.Label(label=str(config.path), xalign=0, wrap=True, wrap_mode=Pango.WrapMode.CHAR, selectable=True, hexpand=True)
+            path.add_css_class("monospace")
+            copy = Gtk.Button(icon_name="edit-copy-symbolic", tooltip_text="パスをコピー", valign=Gtk.Align.CENTER)
+            copy.add_css_class("flat")
+
+            def copy_path(button):
+                button.get_clipboard().set_content(Gdk.ContentProvider.new_for_value(str(config.path)))
+                button.set_icon_name("object-select-symbolic")
+            copy.connect("clicked", copy_path)
+            path_row = Gtk.Box(spacing=6)
+            path_row.append(path)
+            path_row.append(copy)
+            note = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin_start=12, margin_end=12, margin_top=8, margin_bottom=8)
+            note.append(message)
+            note.append(path_row)
             self.content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             self.content.append(note)
             self.content.append(self.list)
