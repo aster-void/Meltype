@@ -28,7 +28,7 @@ if [[ ! "$rpmversion" =~ ^[0-9][A-Za-z0-9.+~]*$ ]]; then
     exit 1
 fi
 
-for f in libMeltypeNative.so ibus-engine-meltype meltype.xml icon.png LICENSE THIRD-PARTY-NOTICES.md mozc/meltype_mozc_helper; do
+for f in libMeltypeNative.so ibus-engine-meltype meltype-settings meltype.xml icon.png LICENSE THIRD-PARTY-NOTICES.md mozc/meltype_mozc_helper; do
     [[ -e "$src/$f" ]] || { echo "必要なファイルがありません: $src/$f (先に linux/build.sh を実行してください)" >&2; exit 1; }
 done
 command -v rpmbuild > /dev/null || { echo "rpmbuild がありません (Fedora なら sudo dnf install rpm-build)" >&2; exit 1; }
@@ -106,6 +106,7 @@ pkill -f %{target}/ibus-engine-meltype > /dev/null 2>&1 || :
 %dir %{target}
 %{target}/libMeltypeNative.so
 %{target}/ibus-engine-meltype
+%{target}/meltype-settings
 %{target}/icon.png
 %{target}/mozc
 %{target}/THIRD-PARTY-NOTICES.md
