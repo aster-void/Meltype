@@ -6,7 +6,7 @@
 # fcitx5 の設定ツール (meltype.cpp の getConfig) から起動する。
 # 画面は config.schema.json (Meltype.Core の SettingsSchema が Settings から作る) から組み立てるので、
 # Settings に項目を足しても、この画面は直さなくてよい。
-# Linux 以外でも GTK 4 と PyGObject があれば動くように、OS ごとの違いは data_directory だけにする。
+# GTK 4 と PyGObject は Windows・Mac でも動く。OS ごとの違いは data_directory だけに置く (今は Linux だけ)。
 
 import json
 import os
@@ -21,14 +21,10 @@ OTHER_CATEGORY = "その他"
 
 
 def data_directory():
-    """Meltype.Core の AppPaths.DataDirectory と同じ場所 (Windows のポータブル版は扱わない)。"""
+    """Meltype.Core の AppPaths.DataDirectory と同じ場所 (.NET の LocalApplicationData は Linux では XDG_DATA_HOME)。"""
     override = os.environ.get("MELTYPE_DATA_DIR")
     if override:
         return Path(override)
-    if sys.platform == "win32":
-        return Path(os.environ["LOCALAPPDATA"]) / "Meltype"
-    if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "Meltype"
     xdg = os.environ.get("XDG_DATA_HOME")
     return (Path(xdg) if xdg and os.path.isabs(xdg) else Path.home() / ".local" / "share") / "Meltype"
 
