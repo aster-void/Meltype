@@ -887,6 +887,8 @@ internal static class SessionFacadeTests
             File.WriteAllText(config, $"{{ \"SettingsVersion\": {Settings.CurrentVersion}, \"Punctuation\": \"FullWidthCommaPeriod\" }}");
             // 同じ時刻に書かれても読み直すことは保証しないので、時刻を進める
             File.SetLastWriteTimeUtc(config, DateTime.UtcNow.AddSeconds(1));
+            // 更新時刻を見るのは SettingsFile.CheckIntervalMs に 1 回 (間隔は SettingsFileTests で確かめる)
+            Thread.Sleep(TimeSpan.FromMilliseconds(SettingsFile.CheckIntervalMs + 100));
             Assert.Equal("ね，", Type(session, "ne,\n")[^1].Commits.Single().Text, "書き換えた config.json の句読点");
             var other = MeltypeSession.CreateDefault(directory, new CompositionTests.FakeConverter(), null, null);
             Assert.Equal("ね，", Type(other, "ne,\n")[^1].Commits.Single().Text, "後から開いた入力欄も同じ設定");

@@ -203,7 +203,7 @@ public sealed class MeltypeSession
         if (s_shared is not { } shared || shared.Directory != dataDirectory)
         {
             SettingsSchema.Write(dataDirectory);
-            // 設定は config.json が変わったら読み直す (入力欄を開いたままでも、次のキーから効く)。入力欄で共有する
+            // 設定は config.json が変わったら読み直す (入力欄を開いたままでも効く)。入力欄で共有する
             var settingsFile = new SettingsFile(Path.Combine(dataDirectory, "config.json"), loaded =>
             {
                 // 設定で「ファイルにログを書く」を ON にしていれば、Mac でも meltype.log に書く (動かないときの調査用)。

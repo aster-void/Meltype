@@ -4,18 +4,26 @@
 namespace Meltype.Config;
 
 /// <summary>
-/// config.json の設定。<see cref="Current"/> を読むたびに更新時刻を見て、変わっていれば読み直す
-/// (Mac・Linux 版では、設定画面やエディターが入力とは別のプロセスで config.json を書く)。
+/// config.json の設定。<see cref="Current"/> を読んだとき、前に確かめてから <see cref="CheckIntervalMs"/> 経っていれば
+/// 更新時刻を見て、変わっていれば読み直す (Mac・Linux 版では、設定画面やエディターが入力とは別のプロセスで config.json を書く)。
 /// </summary>
-internal sealed class SettingsFile(string path, Action<Settings>? loaded = null)
+internal sealed class SettingsFile(string path, Action<Settings>? loaded = null, Func<long>? timeMs = null)
 {
+    /// <summary>1 打鍵で何度も読むので、更新時刻を見るのはこの間隔 (ミリ秒) に 1 回まで。保存してから効くまで、この分だけ遅れる。</summary>
+    public const long CheckIntervalMs = 1000;
+
+    private readonly Func<long> _timeMs = timeMs ?? (() => Environment.TickCount64);
     private Settings? _settings;
     private DateTime _writeTime;
+    private long _checkedMs;
 
     public Settings Current
     {
         get
         {
+            var now = _timeMs();
+            if (_settings is not null && now - _checkedMs < CheckIntervalMs) return _settings;
+            _checkedMs = now;
             // 読む前の時刻を覚える。読んでいる間に書かれても、次に読み直す (Load の移行で保存したときも 1 回読み直す)
             var writeTime = File.GetLastWriteTimeUtc(path);
             if (_settings is null || writeTime != _writeTime)
