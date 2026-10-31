@@ -62,6 +62,9 @@ sudo rm -rf "$target"
 sudo mkdir -p "$target"
 sudo cp -R libMeltypeNative.so ibus-engine-meltype meltype-settings icon.png mozc LICENSE THIRD-PARTY-NOTICES.md "$target/"
 sudo chmod 755 "$target/ibus-engine-meltype" "$target/meltype-settings" "$target/mozc/meltype_mozc_helper"
+# 設定画面: 端末からは meltype-settings、GNOME からはアプリの一覧と入力ソースの「設定」で開く
+sudo ln -sf "$target/meltype-settings" /usr/bin/meltype-settings
+sed "s|@DIR@|$target|g" ibus-setup-meltype.desktop | sudo tee /usr/share/applications/ibus-setup-meltype.desktop > /dev/null
 if $use_ibus; then
     sed "s|@DIR@|$target|g" meltype.xml | sudo tee /usr/share/ibus/component/meltype.xml > /dev/null
     # IBus に読み込み直させる (動いている Meltype も止まり、次に使うときに新しいものが起動する)

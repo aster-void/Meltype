@@ -150,7 +150,7 @@ KDE Plasma の Wayland では fcitx5 を KWin が起動しているため、ロ�
 
 設定と学習データは `~/.local/share/Meltype` にあります (`config.json` は Windows 版と同じ形式)。
 
-設定は「Meltype の設定」の画面で変えます。IBus では、設定 → キーボード → 入力ソースの Meltype のメニュー (⋮) →「設定」で開きます。fcitx5 では、fcitx5 の設定 (`fcitx5-configtool`) の「入力メソッド」で Meltype を選んで、設定のボタンを押します。端末で `/opt/meltype/meltype-settings` を実行しても開けます。変更はすぐに `config.json` に保存し、次に開いた入力欄から反映します。
+設定は「Meltype の設定」の画面で変えます。アプリの一覧の「Meltype の設定」か、端末の `meltype-settings` で開きます。GNOME では、設定 → キーボード → 入力ソースの Meltype のメニュー (⋮) →「設定」からも開けます。fcitx5 では、fcitx5 の設定 (`fcitx5-configtool`) の「入力メソッド」で Meltype を選んで、設定のボタンを押しても開けます。変更はすぐに `config.json` に保存し、次に開いた入力欄から反映します。
 
 画面に無い項目 (アプリ別設定など) は `config.json` を直接編集します。Meltype は同じフォルダーに設定の一覧と説明 (`config.schema.json`) を書くので、`config.json` の先頭で指定すると、VS Code などのエディターで項目の補完・説明・書き間違いの警告が出ます。`"SettingsVersion"` の無い `config.json` は、Meltype が最初に読んだときに、書いていない項目を既定値で書き足します。
 

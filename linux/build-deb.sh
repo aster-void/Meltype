@@ -9,6 +9,7 @@
 #   使う人: sudo apt install ./meltype_1.2.2~pre.2_amd64.deb / sudo apt remove meltype
 # 中身は install.sh が入れるものと同じ場所に置く:
 #   /opt/meltype (本体)、/usr/share/ibus/component/meltype.xml (IBus)、
+#   /usr/bin/meltype-settings と /usr/share/applications/ibus-setup-meltype.desktop (設定画面)、
 #   fcitx5 のアドオンがあれば <ライブラリのフォルダー>/fcitx5/meltype.so と /usr/share/fcitx5/{addon,inputmethod}/meltype.conf
 # 必要なもの: dpkg-deb (1.19 以降。--root-owner-group を使うので fakeroot は要らない)
 set -euo pipefail
@@ -31,7 +32,7 @@ if [[ ! "$debversion" =~ ^[0-9][A-Za-z0-9.+~]*$ ]]; then
     exit 1
 fi
 
-for f in libMeltypeNative.so ibus-engine-meltype meltype-settings meltype.xml icon.png LICENSE THIRD-PARTY-NOTICES.md mozc/meltype_mozc_helper; do
+for f in libMeltypeNative.so ibus-engine-meltype meltype-settings ibus-setup-meltype.desktop meltype.xml icon.png LICENSE THIRD-PARTY-NOTICES.md mozc/meltype_mozc_helper; do
     [[ -e "$src/$f" ]] || { echo "必要なファイルがありません: $src/$f (先に linux/build.sh を実行してください)" >&2; exit 1; }
 done
 command -v dpkg-deb > /dev/null || { echo "dpkg-deb がありません (Debian / Ubuntu で実行してください)" >&2; exit 1; }
@@ -52,11 +53,13 @@ trap 'rm -rf "$stage"' EXIT
 root="$stage/root"
 
 echo "== 中身を並べる ($root)"
-mkdir -p "$root$target" "$root/usr/share/ibus/component" "$root/usr/share/doc/meltype" "$root/DEBIAN"
+mkdir -p "$root$target" "$root/usr/share/ibus/component" "$root/usr/share/doc/meltype" "$root/usr/bin" "$root/usr/share/applications" "$root/DEBIAN"
 cp -R "$src/libMeltypeNative.so" "$src/ibus-engine-meltype" "$src/meltype-settings" "$src/icon.png" "$src/mozc" "$src/LICENSE" "$src/THIRD-PARTY-NOTICES.md" "$root$target/"
 chmod 644 "$root$target/libMeltypeNative.so" "$root$target/icon.png" "$root$target/LICENSE" "$root$target/THIRD-PARTY-NOTICES.md"
 chmod 755 "$root$target/ibus-engine-meltype" "$root$target/meltype-settings" "$root$target/mozc/meltype_mozc_helper"
 sed "s|@DIR@|$target|g" "$src/meltype.xml" > "$root/usr/share/ibus/component/meltype.xml"
+ln -s "$target/meltype-settings" "$root/usr/bin/meltype-settings"
+sed "s|@DIR@|$target|g" "$src/ibus-setup-meltype.desktop" > "$root/usr/share/applications/ibus-setup-meltype.desktop"
 if [[ -f "$src/fcitx5/meltype.so" ]]; then
     mkdir -p "$root$addondir" "$root/usr/share/fcitx5/addon" "$root/usr/share/fcitx5/inputmethod"
     install -m 644 "$src/fcitx5/meltype.so" "$root$addondir/meltype.so"
