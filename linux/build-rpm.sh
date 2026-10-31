@@ -71,7 +71,7 @@ Summary: Japanese input method without the Hankaku/Zenkaku key
 License: GPL-3.0-or-later
 URL: https://github.com/yksr-melt/Meltype
 Requires: libicu, python3
-Recommends: ibus, python3-gobject
+Recommends: ibus, python3-gobject, gtk4
 %if %{with_fcitx5}
 Suggests: fcitx5
 %endif
@@ -83,9 +83,9 @@ and romaji becomes Japanese, without switching the input mode.
 
 %install
 mkdir -p %{buildroot}%{target} %{buildroot}%{_datadir}/ibus/component
-cp -R %{meltype_src}/libMeltypeNative.so %{meltype_src}/ibus-engine-meltype %{meltype_src}/icon.png %{meltype_src}/mozc %{meltype_src}/LICENSE %{meltype_src}/THIRD-PARTY-NOTICES.md %{buildroot}%{target}/
+cp -R %{meltype_src}/libMeltypeNative.so %{meltype_src}/ibus-engine-meltype %{meltype_src}/meltype-settings %{meltype_src}/icon.png %{meltype_src}/mozc %{meltype_src}/LICENSE %{meltype_src}/THIRD-PARTY-NOTICES.md %{buildroot}%{target}/
 chmod 644 %{buildroot}%{target}/libMeltypeNative.so %{buildroot}%{target}/icon.png %{buildroot}%{target}/LICENSE %{buildroot}%{target}/THIRD-PARTY-NOTICES.md
-chmod 755 %{buildroot}%{target}/ibus-engine-meltype %{buildroot}%{target}/mozc/meltype_mozc_helper
+chmod 755 %{buildroot}%{target}/ibus-engine-meltype %{buildroot}%{target}/meltype-settings %{buildroot}%{target}/mozc/meltype_mozc_helper
 sed "s|@DIR@|%{target}|g" %{meltype_src}/meltype.xml > %{buildroot}%{_datadir}/ibus/component/meltype.xml
 %if %{with_fcitx5}
 install -D -m 644 %{meltype_src}/fcitx5/meltype.so %{buildroot}%{_libdir}/fcitx5/meltype.so

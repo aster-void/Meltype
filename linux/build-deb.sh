@@ -53,9 +53,9 @@ root="$stage/root"
 
 echo "== 中身を並べる ($root)"
 mkdir -p "$root$target" "$root/usr/share/ibus/component" "$root/usr/share/doc/meltype" "$root/DEBIAN"
-cp -R "$src/libMeltypeNative.so" "$src/ibus-engine-meltype" "$src/icon.png" "$src/mozc" "$src/LICENSE" "$src/THIRD-PARTY-NOTICES.md" "$root$target/"
+cp -R "$src/libMeltypeNative.so" "$src/ibus-engine-meltype" "$src/meltype-settings" "$src/icon.png" "$src/mozc" "$src/LICENSE" "$src/THIRD-PARTY-NOTICES.md" "$root$target/"
 chmod 644 "$root$target/libMeltypeNative.so" "$root$target/icon.png" "$root$target/LICENSE" "$root$target/THIRD-PARTY-NOTICES.md"
-chmod 755 "$root$target/ibus-engine-meltype" "$root$target/mozc/meltype_mozc_helper"
+chmod 755 "$root$target/ibus-engine-meltype" "$root$target/meltype-settings" "$root$target/mozc/meltype_mozc_helper"
 sed "s|@DIR@|$target|g" "$src/meltype.xml" > "$root/usr/share/ibus/component/meltype.xml"
 if [[ -f "$src/fcitx5/meltype.so" ]]; then
     mkdir -p "$root$addondir" "$root/usr/share/fcitx5/addon" "$root/usr/share/fcitx5/inputmethod"
@@ -83,6 +83,7 @@ find "$root" -type d -exec chmod 755 {} +
 
 # 依存: 本体 (NativeAOT) と Mozc の変換ヘルパーが使う C / C++ のライブラリと zlib、IBus のエンジン (Python)。
 # IBus は fcitx5 だけで使う人もいるので Recommends にする (install.sh も fcitx5 だけなら IBus を入れない)
+# 設定画面 (GTK 4) は無くても入力はできるので Recommends にする
 installed_size="$(du -sk --exclude=DEBIAN "$root" | cut -f1)"
 {
     echo "Package: meltype"
@@ -91,7 +92,7 @@ installed_size="$(du -sk --exclude=DEBIAN "$root" | cut -f1)"
     echo "Maintainer: Yukishiro <https://github.com/yksr-melt/Meltype>"
     echo "Installed-Size: $installed_size"
     echo "Depends: libc6, libstdc++6, libgcc-s1, zlib1g, python3"
-    echo "Recommends: ibus, python3-gi, gir1.2-ibus-1.0"
+    echo "Recommends: ibus, python3-gi, gir1.2-ibus-1.0, gir1.2-gtk-4.0"
     if $with_fcitx5; then echo "Suggests: fcitx5"; fi
     echo "Section: utils"
     echo "Priority: optional"
