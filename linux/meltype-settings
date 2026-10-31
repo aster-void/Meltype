@@ -143,7 +143,7 @@ def main():
             self.sidebar.connect("row-activated", lambda _, row: self._scroll_to(self.first_rows[row.get_index()]))
             self.sidebar.select_row(self.sidebar.get_row_at_index(0))
 
-            note = Gtk.Label(label="変更はすぐに config.json に保存します。次に開いた入力欄から反映します。", xalign=0, wrap=True,
+            note = Gtk.Label(label="変更はすぐに config.json に保存し、次に打ったキーから反映します。", xalign=0, wrap=True,
                              margin_start=12, margin_end=12, margin_top=8, margin_bottom=8)
             note.add_css_class("dim-label")
             self.content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
