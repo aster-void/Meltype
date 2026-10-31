@@ -129,18 +129,19 @@ def main():
             self.list.add_css_class("rich-list")
             self.list.set_filter_func(self._matches)
             self.list.set_header_func(self._header)
-            sidebar = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE, width_request=160)
-            sidebar.add_css_class("navigation-sidebar")
-            first_rows = []
+            self.sidebar = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE, width_request=160)
+            self.sidebar.add_css_class("navigation-sidebar")
+            self.first_rows = []
             for category, items in load_items(schema):
-                sidebar.append(Gtk.Label(label=category_label(category), xalign=0))
+                self.sidebar.append(Gtk.Label(label=category_label(category), xalign=0))
                 for index, (key, prop) in enumerate(items):
                     row = self._row(key, prop)
                     row.category = category
                     if index == 0:
-                        first_rows.append(row)
+                        self.first_rows.append(row)
                     self.list.append(row)
-            sidebar.connect("row-activated", lambda _, row: self._scroll_to(first_rows[row.get_index()]))
+            self.sidebar.connect("row-activated", lambda _, row: self._scroll_to(self.first_rows[row.get_index()]))
+            self.sidebar.select_row(self.sidebar.get_row_at_index(0))
 
             note = Gtk.Label(label="変更はすぐに config.json に保存します。次に開いた入力欄から反映します。", xalign=0, wrap=True,
                              margin_start=12, margin_end=12, margin_top=8, margin_bottom=8)
@@ -149,8 +150,9 @@ def main():
             self.content.append(note)
             self.content.append(self.list)
             self.scroller = Gtk.ScrolledWindow(child=self.content, hexpand=True, vexpand=True)
+            self.scroller.get_vadjustment().connect("value-changed", self._follow_scroll)
             layout = Gtk.Box()
-            layout.append(Gtk.ScrolledWindow(child=sidebar, hscrollbar_policy=Gtk.PolicyType.NEVER))
+            layout.append(Gtk.ScrolledWindow(child=self.sidebar, hscrollbar_policy=Gtk.PolicyType.NEVER))
             layout.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
             layout.append(self.scroller)
             self.set_child(layout)
@@ -221,12 +223,30 @@ def main():
             label.add_css_class("title-4")
             row.set_header(label)
 
-        def _scroll_to(self, row):
-            self.search.set_text("")
+        def _top(self, row):
+            """分類の見出しの、content の中での位置 (隠れていれば None)。"""
             # scroller の子 (Gtk.Viewport) はスクロールで動くので、動かない content からの位置を使う
             point = (row.get_header() or row).compute_point(self.content, Graphene.Point())
-            if point[0]:
-                self.scroller.get_vadjustment().set_value(point[1].y)
+            return point[1].y if point[0] else None
+
+        def _scroll_to(self, row):
+            self.search.set_text("")
+            if (top := self._top(row)) is not None:
+                self.scroller.get_vadjustment().set_value(top)
+
+        def _follow_scroll(self, adjustment):
+            """サイドバーで、いま上端に見えている分類を選ぶ。"""
+            if self.search.get_text():
+                return
+            value = adjustment.get_value()
+            tops = [self._top(row) for row in self.first_rows]
+            current = max((i for i, top in enumerate(tops) if top is not None and top <= value + 1), default=0)
+            # 最後のほうの分類は上端まで来ない。一番下では、選んでいる分類が見えていれば選んだままにする
+            selected = self.sidebar.get_selected_row()
+            if value >= adjustment.get_upper() - adjustment.get_page_size() - 1:
+                current = selected.get_index() if selected and (tops[selected.get_index()] or 0) >= value else len(tops) - 1
+            if selected is None or selected.get_index() != current:
+                self.sidebar.select_row(self.sidebar.get_row_at_index(current))
 
     def activate(app):
         if window := app.get_active_window():
