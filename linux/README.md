@@ -150,11 +150,9 @@ KDE Plasma の Wayland では fcitx5 を KWin が起動しているため、ロ�
 
 設定と学習データは `~/.local/share/Meltype` にあります (`config.json` は Windows 版と同じ形式)。
 
-設定は「Meltype の設定」の画面で変えます。アプリの一覧の「Meltype の設定」か、端末の `meltype-settings` で開きます。GNOME では、設定 → キーボード → 入力ソースの Meltype のメニュー (⋮) →「設定」からも開けます。fcitx5 では、fcitx5 の設定 (`fcitx5-configtool`) の「入力メソッド」で Meltype を選んで、設定のボタンを押しても開けます。変更はすぐに `config.json` に保存し、1 秒ほどで入力に反映します。
+設定は、アプリの一覧の「Meltype の設定」で変えられます。Windows 版だけで効く項目も並んでいるので、気をつけてください。
 
 画面に無い項目 (アプリ別設定など) は `config.json` を直接編集します。Meltype は同じフォルダーに設定の一覧と説明 (`config.schema.json`) を書くので、`config.json` の先頭で指定すると、VS Code などのエディターで項目の補完・説明・書き間違いの警告が出ます。`"SettingsVersion"` の無い `config.json` は、Meltype が最初に読んだときに、書いていない項目を既定値で書き足します。
-
-fcitx5 の固定の操作ガイドを隠すには、設定の画面の「その他」→「固定の操作ガイドを表示 (fcitx5)」を OFF にします。英字・予測・訂正の提案は OFF でも表示します。
 
 ```json
 {
@@ -202,7 +200,7 @@ bash uninstall.sh --data
 | --- | --- |
 | IBus のエンジン (`ibus-engine-meltype`, Python) | IBus からキーを受け取り、判定の本体に渡して、変換中の文字・候補・確定を入力欄に反映する |
 | fcitx5 のアドオン (`fcitx5/`, C++) | fcitx5 からキーを受け取り、判定の本体に渡す |
-| 設定画面 (`meltype-settings`, Python・GTK 4) | `config.schema.json` から画面を組み立てて、`config.json` を書く。OS ごとの違いはデータの保存場所を決める `data_directory` だけに置く |
+| 設定画面 (`meltype-settings`, Python・GTK 4) | `config.schema.json` から画面を組み立てて、`config.json` を書く |
 | 判定の本体 (`libMeltypeNative.so`) | Windows 版と共通の C# の部分 (`src/Meltype.Core`) を NativeAOT で Linux 用のライブラリにしたもの |
 | 漢字変換 | Mozc の変換ヘルパー (`native/mozc`) |
 
