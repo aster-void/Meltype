@@ -7,6 +7,8 @@ on:
     types: [opened, reopened, synchronize]
   issue_comment:
     types: [created]
+  # cla は main の必須チェック。同意は Pull Request で確かめるので、merge queue では飛ばした結果を報告する
+  merge_group:
 
 permissions: {}
 

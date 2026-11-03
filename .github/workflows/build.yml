@@ -16,8 +16,9 @@ on:
       - '.github/workflows/mac.yml'
       - '.github/workflows/linux.yml'
       - '.github/workflows/build.yml'
-  # test・core は main の必須チェック。paths で絞ると、当たらない Pull Request で報告されずマージできなくなる。
+  # test・core は main の必須チェック (merge queue でも)。paths で絞ると、当たらない Pull Request で報告されずマージできなくなる。
   pull_request:
+  merge_group:
   workflow_dispatch:
 
 permissions:
@@ -111,7 +112,7 @@ jobs:
   # Mozc の変換ヘルパー (native/mozc) をビルドする。初回は 30〜40 分かかるので、配布用の zip を作るとき
   # (タグ・手動実行) と、ヘルパーのソースを変えたときだけ。Bazel の結果はキャッシュして次から速くする。
   mozc:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: windows-2022
     timeout-minutes: 90
     outputs:
