@@ -50,6 +50,10 @@ static bool SelfIsMediumOrLower() {
     return level != 0 && level <= SECURITY_MANDATORY_MEDIUM_RID;
 }
 
+#ifdef MELTYPE_TIP_STUB
+HRESULT CreateStubService(REFIID riid, void** ppv);  // Stub.cpp
+#endif
+
 void TipLog(const wchar_t* format, ...) {
     static int enabled = -1;
     if (enabled < 0 && !SelfIsMediumOrLower()) enabled = 0;
@@ -81,9 +85,13 @@ void TipLog(const wchar_t* format, ...) {
     wchar_t exe[MAX_PATH] = {};
     GetModuleFileNameW(nullptr, exe, MAX_PATH);
     const wchar_t* name = wcsrchr(exe, L'\\');
+    // spike (#1670): どの DLL (stub・impl) が書いた行かが分かるように、DLL のファイル名も書く
+    wchar_t dll[MAX_PATH] = {};
+    GetModuleFileNameW(g_module, dll, MAX_PATH);
+    const wchar_t* dllName = wcsrchr(dll, L'\\');
     wchar_t line[1400];
-    StringCchPrintfW(line, ARRAYSIZE(line), L"%02d:%02d:%02d.%03d [%s %lu] %s\r\n", now.wHour, now.wMinute, now.wSecond, now.wMilliseconds,
-                     name ? name + 1 : exe, GetCurrentThreadId(), message);
+    StringCchPrintfW(line, ARRAYSIZE(line), L"%02d:%02d:%02d.%03d [%s %lu %s] %s\r\n", now.wHour, now.wMinute, now.wSecond, now.wMilliseconds,
+                     name ? name + 1 : exe, GetCurrentThreadId(), dllName ? dllName + 1 : dll, message);
     std::string utf8 = ToUtf8(line);
     DWORD written = 0;
     WriteFile(file, utf8.data(), static_cast<DWORD>(utf8.size()), &written, nullptr);
@@ -116,11 +124,15 @@ public:
         if (ppv == nullptr) return E_INVALIDARG;
         *ppv = nullptr;
         if (outer != nullptr) return CLASS_E_NOAGGREGATION;
+#ifdef MELTYPE_TIP_STUB
+        return CreateStubService(riid, ppv);
+#else
         auto* service = new (std::nothrow) TextService();
         if (service == nullptr) return E_OUTOFMEMORY;
         HRESULT hr = service->QueryInterface(riid, ppv);
         service->Release();
         return hr;
+#endif
     }
     STDMETHODIMP LockServer(BOOL lock) override {
         if (lock) {
@@ -227,10 +239,14 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
         case DLL_PROCESS_ATTACH:
             g_module = instance;
             DisableThreadLibraryCalls(instance);
+#ifndef MELTYPE_TIP_STUB
             CandidateWindow::RegisterClasses();
+#endif
             break;
         case DLL_PROCESS_DETACH:
+#ifndef MELTYPE_TIP_STUB
             CandidateWindow::UnregisterClasses();
+#endif
             break;
     }
     return TRUE;
@@ -244,10 +260,14 @@ STDAPI DllGetClassObject(REFCLSID clsid, REFIID riid, void** ppv) {
 }
 
 STDAPI DllCanUnloadNow() {
+#ifdef MELTYPE_TIP_STUB
+    return g_locks > 0 ? S_FALSE : S_OK;
+#else
     if (g_locks > 0) return S_FALSE;
     // このあと DLL が外れると静的変数ごと消えるので、ファクトリーはここで解放する
     CandidateWindow::ReleaseFactories();
     return S_OK;
+#endif
 }
 
 STDAPI DllRegisterServer() {
