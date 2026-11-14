@@ -67,7 +67,7 @@ try {
 
     $setup = Join-Path $Directory $asset.name
     $ready = Join-Path $Directory 'ready.txt'
-    # 1.5.1 以前の Meltype が書いた ready.txt (2 列目が zip を展開したフォルダー) は、同じ版でもダウンロードし直す
+    # 1.6.0 以前の Meltype が書いた ready.txt (2 列目が zip を展開したフォルダー) は、同じ版でもダウンロードし直す
     if ((Test-Path -LiteralPath $ready) -and ((Get-Content -LiteralPath $ready -Raw).Trim() -eq "$latest`t$setup") -and (Test-Path -LiteralPath $setup -PathType Leaf)) { Write-Output "ready $latest"; exit 0 }
 
     New-Item -ItemType Directory -Force -Path $Directory | Out-Null
@@ -84,7 +84,7 @@ try {
     # インターネットから落とした印 (Zone.Identifier) を外す (実行したときの SmartScreen の確認を出さない)
     Unblock-File -LiteralPath $setup -ErrorAction SilentlyContinue
 
-    # 前の版のインストーラーと、1.5.1 以前の Meltype が展開した zip を片付ける
+    # 前の版のインストーラーと、1.6.0 以前の Meltype が展開した zip を片付ける
     Get-ChildItem -LiteralPath $Directory | Where-Object { $_.FullName -ne $setup -and $_.Name -notin 'ready.txt', 'applying.txt', 'install.log' } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     [IO.File]::WriteAllText($ready, "$latest`t$setup", (New-Object Text.UTF8Encoding $false))
     Write-Output "ready $latest"

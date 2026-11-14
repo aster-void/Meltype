@@ -258,7 +258,7 @@ function Install-MeltypeIme([string]$Source, [switch]$Explain) {
 # このユーザーの言語の一覧からは必ず外す (管理者権限が要らない)。PC 全体の登録を外すのは UAC で断られたら残す (ほかのユーザーが使っていることもある)
 function Uninstall-MeltypeIme([switch]$Explain) {
     try { Remove-MeltypeImeFromLanguageList } catch { }
-    # 1.5.1 以前の Meltype が、登録を断った記録 (ImeDeclined) を置いていた
+    # 1.6.0 以前の Meltype が、登録を断った記録 (ImeDeclined) を置いていた
     Remove-Item -LiteralPath 'HKCU:\Software\Meltype' -Recurse -Force -ErrorAction SilentlyContinue
     if (-not (Test-MeltypeImeRegistered)) { return $true }
     $register = Join-Path $MeltypeProgramFiles 'Meltype\tip\Register-Tip.ps1'
